@@ -1,0 +1,26 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      # Upgrade AWS CLI to the latest version
+      - pip install --upgrade awscli
+    runtime-versions:
+      java: openjdk8
+  pre_build:
+    commands:
+      - cd EventPublisherFunction
+      - echo Test started on `date`
+      - mvn clean compile test
+  build:
+    commands:
+      - echo Build started on `date`
+      - mvn package shade:shade
+      - mv target/EventPublisher-1.0.jar .
+      - unzip EventPublisher-1.0.jar
+      - rm -rf target tst src buildspec.yml pom.xml EventPublisher-1.0.jar
+      - aws cloudformation package --template ../template.yaml --s3-bucket nhlp3-event-publisher-cloudformation-artifacts --output-template ../template-export.yaml
+
+artifacts:
+  files:
+    - template-export.yaml
