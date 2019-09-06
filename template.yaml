@@ -9,8 +9,69 @@ Resources:
       CodeUri: EventPublisherFunction
       Handler: iansteph.nhlp3.eventpublisher.handler.EventPublisherHandler::handleRequest
       Runtime: java8
+      Role:
+        Fn::GetAtt:
+          - EventPublisherExecutionRole
+          - Arn
+
+  EventPublisherExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: IAM Role assumed when invoking the Event Publisher lambda function
+      RoleName: NHLP3-Event-Publisher-Execution-Role-Prod
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        -
+          PolicyName: EventPublishingPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  Ref: NHLP3EventsSnsTopic
 
   NHLP3EventsSnsTopic:
     Type: AWS::SNS::Topic
     Properties:
       TopicName: NHLP3-Play-by-Play-Events-Prod
+
+  NHLP3EventsSnsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - Ref: NHLP3EventsSnsTopic
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Sid: AllowAllAwsAccountSubscriptions
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Action:
+              - sns:Subscribe
+            Resource:
+              Ref: NHLP3EventsSnsTopic
+          -
+            Sid: OnlyEventPublisherExecutionRoleCanPublishMessagesToSnsTopic
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::GetAtt:
+                  - EventPublisherExecutionRole
+                  - Arn
+            Action:
+              - sns:Publish
+            Resource:
+              Ref: NHLP3EventsSnsTopic
