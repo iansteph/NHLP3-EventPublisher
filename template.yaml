@@ -40,6 +40,13 @@ Resources:
                   - sns:Publish
                 Resource:
                   Ref: NHLP3EventsSnsTopic
+              -
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                Resource: 'arn:aws:dynamodb:us-east-1:627812672245:table/NhlPlayByPlayProcessingAggregate'
 
   NHLP3EventsSnsTopic:
     Type: AWS::SNS::Topic
