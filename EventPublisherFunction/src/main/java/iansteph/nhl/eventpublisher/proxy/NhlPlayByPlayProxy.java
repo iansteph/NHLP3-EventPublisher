@@ -1,6 +1,8 @@
 package iansteph.nhl.eventpublisher.proxy;
 
 import iansteph.nhl.eventpublisher.client.NhlPlayByPlayClient;
+import iansteph.nhl.eventpublisher.handler.EventPublisherRequest;
+import iansteph.nhl.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -17,9 +19,11 @@ public class NhlPlayByPlayProxy {
         this.nhlPlayByPlayClient = nhlPlayByPlayClient;
     }
 
-    public Object getPlayByPlayEventsSinceLastProcessedTimestamp(final String lastProcessedTimestamp) {
+    public NhlLiveGameFeedResponse getPlayByPlayEventsSinceLastProcessedTimestamp(final String lastProcessedTimestamp,
+            final EventPublisherRequest eventPublisherRequest) {
         validateLastProcessedTimestamp(lastProcessedTimestamp);
-        return nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(lastProcessedTimestamp);
+        final int gameId = eventPublisherRequest.getGameId();
+        return nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(gameId, lastProcessedTimestamp);
     }
 
     private void validateLastProcessedTimestamp(final String lastProcessedTimestamp) {

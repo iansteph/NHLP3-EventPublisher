@@ -4,6 +4,8 @@ import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBHashKey;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
 
+import java.util.Objects;
+
 @DynamoDBTable(tableName="NhlPlayByPlayProcessingAggregate")
 public class NhlPlayByPlayProcessingItem {
 
@@ -37,5 +39,22 @@ public class NhlPlayByPlayProcessingItem {
         return String.format("NhlPlayByPlayProcessingItem(compositeGameId=%s,lastProcessedTimeStamp=%s,lastProcessedEventIndex=%s," +
                 "isIntermission=%s,hasGameEnded=%s)", compositeGameId, lastProcessedTimeStamp, lastProcessedEventIndex, isIntermission,
                 hasGameEnded);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        NhlPlayByPlayProcessingItem that = (NhlPlayByPlayProcessingItem) o;
+        return lastProcessedEventIndex == that.lastProcessedEventIndex &&
+                isIntermission == that.isIntermission &&
+                hasGameEnded == that.hasGameEnded &&
+                Objects.equals(compositeGameId, that.compositeGameId) &&
+                Objects.equals(lastProcessedTimeStamp, that.lastProcessedTimeStamp);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(compositeGameId, lastProcessedTimeStamp, lastProcessedEventIndex, isIntermission, hasGameEnded);
     }
 }
