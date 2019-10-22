@@ -21,9 +21,14 @@ public class NhlPlayByPlayProxy {
 
     public NhlLiveGameFeedResponse getPlayByPlayEventsSinceLastProcessedTimestamp(final String lastProcessedTimestamp,
             final EventPublisherRequest eventPublisherRequest) {
+        validateArguments(lastProcessedTimestamp, eventPublisherRequest);
+        return nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(eventPublisherRequest.getGameId(),
+                lastProcessedTimestamp);
+    }
+
+    private void validateArguments(final String lastProcessedTimestamp, final EventPublisherRequest eventPublisherRequest) {
+        checkNotNull(eventPublisherRequest);
         validateLastProcessedTimestamp(lastProcessedTimestamp);
-        final int gameId = eventPublisherRequest.getGameId();
-        return nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(gameId, lastProcessedTimestamp);
     }
 
     private void validateLastProcessedTimestamp(final String lastProcessedTimestamp) {
