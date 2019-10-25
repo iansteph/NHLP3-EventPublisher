@@ -9,7 +9,7 @@ public class IntermissionInfo {
 
     private int intermissionTimeRemaining;
     private int intermissionTimeElapsed;
-    private boolean inSituation;
+    private boolean inIntermission;
 
     public int getIntermissionTimeRemaining() {
         return intermissionTimeRemaining;
@@ -27,12 +27,12 @@ public class IntermissionInfo {
         this.intermissionTimeElapsed = intermissionTimeElapsed;
     }
 
-    public boolean isInSituation() {
-        return inSituation;
+    public boolean isInIntermission() {
+        return inIntermission;
     }
 
-    public void setInSituation(final boolean inSituation) {
-        this.inSituation = inSituation;
+    public void setInIntermission(final boolean inIntermission) {
+        this.inIntermission = inIntermission;
     }
 
     @Override
@@ -40,7 +40,7 @@ public class IntermissionInfo {
         return "IntermissionInfo{" +
                 "intermissionTimeRemaining=" + intermissionTimeRemaining +
                 ", intermissionTimeElapsed=" + intermissionTimeElapsed +
-                ", inSituation=" + inSituation +
+                ", inIntermission=" + inIntermission +
                 '}';
     }
 
@@ -51,11 +51,11 @@ public class IntermissionInfo {
         IntermissionInfo that = (IntermissionInfo) o;
         return intermissionTimeRemaining == that.intermissionTimeRemaining &&
                 intermissionTimeElapsed == that.intermissionTimeElapsed &&
-                inSituation == that.inSituation;
+                inIntermission == that.inIntermission;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(intermissionTimeRemaining, intermissionTimeElapsed, inSituation);
+        return Objects.hash(intermissionTimeRemaining, intermissionTimeElapsed, inIntermission);
     }
 }

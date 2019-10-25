@@ -53,6 +53,10 @@ public class Status {
         this.startingTimeTBD = startingTimeTBD;
     }
 
+    public boolean isGameEnded() {
+        return this.abstractGameState.toLowerCase().equals("final");
+    }
+
     @Override
     public String toString() {
         return "Status{" +

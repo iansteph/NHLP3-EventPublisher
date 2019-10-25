@@ -4,6 +4,7 @@ import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.google.common.hash.Hashing;
 import iansteph.nhl.eventpublisher.handler.EventPublisherRequest;
 import iansteph.nhl.eventpublisher.model.dynamo.NhlPlayByPlayProcessingItem;
+import iansteph.nhl.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -15,7 +16,7 @@ public class DynamoDbProxy {
         this.dynamoDBMapper = dynamoDbMapper;
     }
 
-    public NhlPlayByPlayProcessingItem getNhlPlayByPlayProcessingItemForGameId(final EventPublisherRequest request) {
+    public NhlPlayByPlayProcessingItem getNhlPlayByPlayProcessingItem(final EventPublisherRequest request) {
         checkNotNull(request);
 
         final NhlPlayByPlayProcessingItem item = new NhlPlayByPlayProcessingItem();
@@ -29,5 +30,20 @@ public class DynamoDbProxy {
         final int gameId = request.getGameId();
         final String hashedGameId = Hashing.murmur3_128().hashInt(gameId).toString();
         return String.format("%s~%s", hashedGameId, gameId);
+    }
+
+    public NhlPlayByPlayProcessingItem updateNhlPlayByPlayProcessingItem(final NhlPlayByPlayProcessingItem itemToUpdate,
+            final NhlLiveGameFeedResponse nhlLiveGameFeedResponse) {
+        checkNotNull(itemToUpdate);
+        checkNotNull(nhlLiveGameFeedResponse);
+
+        itemToUpdate.setHasGameEnded(nhlLiveGameFeedResponse.getGameData().getStatus().isGameEnded());
+        itemToUpdate.setIsIntermission(nhlLiveGameFeedResponse.getLiveData().getLinescore().getIntermissionInfo().isInIntermission());
+        itemToUpdate.setLastProcessedEventIndex(nhlLiveGameFeedResponse.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx());
+        itemToUpdate.setLastProcessedTimeStamp(nhlLiveGameFeedResponse.getMetaData().getTimeStamp());
+
+        dynamoDBMapper.save(nhlLiveGameFeedResponse);
+
+        return itemToUpdate;
     }
 }
