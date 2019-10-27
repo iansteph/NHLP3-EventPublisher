@@ -13,7 +13,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class NhlPlayByPlayProxy {
 
-    private NhlPlayByPlayClient nhlPlayByPlayClient;
+    private final NhlPlayByPlayClient nhlPlayByPlayClient;
 
     public NhlPlayByPlayProxy(final NhlPlayByPlayClient nhlPlayByPlayClient) {
         this.nhlPlayByPlayClient = nhlPlayByPlayClient;

@@ -10,7 +10,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DynamoDbProxy {
 
-    private DynamoDBMapper dynamoDBMapper;
+    private final DynamoDBMapper dynamoDBMapper;
 
     public DynamoDbProxy(final DynamoDBMapper dynamoDbMapper) {
         this.dynamoDBMapper = dynamoDbMapper;
