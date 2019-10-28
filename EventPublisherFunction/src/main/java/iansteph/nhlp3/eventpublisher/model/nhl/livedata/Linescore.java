@@ -1,7 +1,6 @@
 package iansteph.nhlp3.eventpublisher.model.nhl.livedata;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import iansteph.nhl.eventpublisher.model.nhl.livedata.linescore.*;
 import iansteph.nhlp3.eventpublisher.model.nhl.livedata.linescore.*;
 
 import java.util.List;

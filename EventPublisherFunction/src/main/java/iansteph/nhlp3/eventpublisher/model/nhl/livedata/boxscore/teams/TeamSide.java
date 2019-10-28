@@ -1,7 +1,6 @@
 package iansteph.nhlp3.eventpublisher.model.nhl.livedata.boxscore.teams;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import iansteph.nhl.eventpublisher.model.nhl.livedata.boxscore.teams.teamside.*;
 import iansteph.nhlp3.eventpublisher.model.nhl.livedata.boxscore.teams.teamside.*;
 
 import java.util.List;

@@ -9,6 +9,9 @@ Resources:
       CodeUri: EventPublisherFunction
       Handler: iansteph.nhlp3.eventpublisher.handler.EventPublisherHandler::handleRequest
       Runtime: java8
+      Description: Event publisher function for NHLP3 to publish each play-by-play event for each game
+      MemorySize: 128
+      Timeout: 15
       Role:
         Fn::GetAtt:
           - EventPublisherExecutionRole
