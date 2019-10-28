@@ -11,13 +11,6 @@ import iansteph.nhl.eventpublisher.UnitTestBase;
 import iansteph.nhl.eventpublisher.model.dynamo.NhlPlayByPlayProcessingItem;
 import iansteph.nhl.eventpublisher.model.event.PlayEvent;
 import iansteph.nhl.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
-import iansteph.nhl.eventpublisher.model.nhl.gamedata.GameData;
-import iansteph.nhl.eventpublisher.model.nhl.gamedata.Status;
-import iansteph.nhl.eventpublisher.model.nhl.gamedata.Teams;
-import iansteph.nhl.eventpublisher.model.nhl.gamedata.teams.Team;
-import iansteph.nhl.eventpublisher.model.nhl.livedata.LiveData;
-import iansteph.nhl.eventpublisher.model.nhl.livedata.Plays;
-import iansteph.nhl.eventpublisher.model.nhl.livedata.plays.Play;
 import iansteph.nhl.eventpublisher.model.nhl.livedata.plays.play.About;
 import iansteph.nhl.eventpublisher.proxy.DynamoDbProxy;
 import iansteph.nhl.eventpublisher.proxy.EventPublisherProxy;
@@ -25,9 +18,6 @@ import iansteph.nhl.eventpublisher.proxy.NhlPlayByPlayProxy;
 import org.junit.Before;
 import org.junit.Test;
 import software.amazon.awssdk.services.cloudwatchevents.CloudWatchEventsClient;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class EventPublisherHandlerTest extends UnitTestBase {
 
@@ -59,7 +49,7 @@ public class EventPublisherHandlerTest extends UnitTestBase {
     }
 
     @Test
-    public void handleRequestIsSuccessful() {
+    public void testHandleRequestIsSuccessful() {
         EventPublisherHandler eventPublisherHandler = new EventPublisherHandler(mockDynamoDbProxy, mockNhlPlayByPlayProxy,
                 mockEventPublisherProxy, mockCloudWatchEventsClient);
         final EventPublisherRequest eventPublisherRequest = new EventPublisherRequest();
@@ -72,7 +62,7 @@ public class EventPublisherHandlerTest extends UnitTestBase {
     }
 
     @Test
-    public void handleRequestDoesNotPublishAnyEventsIfThereIsNoNewEventSinceLastEventProcessed() {
+    public void testHandleRequestDoesNotPublishAnyEventsIfThereIsNoNewEventSinceLastEventProcessed() {
         final About about = new About();
         about.setEventIdx(0);
         NhlLiveGameFeedResponse.getLiveData().getPlays().getCurrentPlay().setAbout(about);
@@ -94,6 +84,4 @@ public class EventPublisherHandlerTest extends UnitTestBase {
         assertThat(result.getLastProcessedEventIndex(), is(0));
         verify(mockEventPublisherProxy, times(0)).publish(any(PlayEvent.class), anyInt(), anyInt());
     }
-
-    // TODO | Add another test to verify that no events are published if no new events have occurred since last event processed
 }

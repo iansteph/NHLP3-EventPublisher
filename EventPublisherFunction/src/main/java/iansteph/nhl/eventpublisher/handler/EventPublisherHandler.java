@@ -6,6 +6,7 @@ import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.sns.AmazonSNSClientBuilder;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import iansteph.nhl.eventpublisher.client.NhlPlayByPlayClient;
 import iansteph.nhl.eventpublisher.model.dynamo.NhlPlayByPlayProcessingItem;
 import iansteph.nhl.eventpublisher.model.event.PlayEvent;
@@ -24,6 +25,8 @@ import software.amazon.awssdk.services.cloudwatchevents.model.RemoveTargetsReque
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static java.lang.String.format;
 
 /**
  * Handler for requests to Lambda function.
@@ -44,7 +47,7 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
         final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(new RestTemplate());
         this.nhlPlayByPlayProxy = new NhlPlayByPlayProxy(nhlPlayByPlayClient);
 
-        this.eventPublisherProxy = new EventPublisherProxy(AmazonSNSClientBuilder.defaultClient());
+        this.eventPublisherProxy = new EventPublisherProxy(AmazonSNSClientBuilder.defaultClient(), new ObjectMapper());
 
         this.cloudWatchEventsClient = CloudWatchEventsClient.builder()
                 .httpClientBuilder(ApacheHttpClient.builder())
@@ -60,27 +63,25 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
     }
 
     public NhlPlayByPlayProcessingItem handleRequest(final EventPublisherRequest eventPublisherRequest, final Context context) {
-
-        // TODO | Call DynamoDB to get the last processed event
         final NhlPlayByPlayProcessingItem nhlPlayByPlayProcessingItem =
                 dynamoDbProxy.getNhlPlayByPlayProcessingItem(eventPublisherRequest);
+        System.out.println(format("Retrieving NhlPlayByPlayProcessingItem from DynamoDB: %s", nhlPlayByPlayProcessingItem));
         final String lastProcessedTimestamp = nhlPlayByPlayProcessingItem.getLastProcessedTimeStamp();
 
-        // TODO | Call the NHL endpoint to get all of the events that should be processed
         final NhlLiveGameFeedResponse nhlLiveGameFeedResponse = nhlPlayByPlayProxy.getPlayByPlayEventsSinceLastProcessedTimestamp(
                 lastProcessedTimestamp, eventPublisherRequest);
+        System.out.println(format("Calling NHL Play-by-Play timestamp diff API: %s", nhlLiveGameFeedResponse));
 
-        // TODO | For each play publish a message
         final List<PlayEvent> playEvents = splitPlayByPlayResponseIntoPlaysSinceLastTimestamp(nhlPlayByPlayProcessingItem,
                 nhlLiveGameFeedResponse);
+        System.out.println(format("%s event(s) since last event processed. Events to process: %s", playEvents.size(), playEvents));
         final Teams teamsInPlay = nhlLiveGameFeedResponse.getGameData().getTeams();
         playEvents.forEach(p -> eventPublisherProxy.publish(p, teamsInPlay.getHome().getId(), teamsInPlay.getAway().getId()));
 
-        // TODO | Write to DynamoDB of the last event published
         final NhlPlayByPlayProcessingItem updatedItem = dynamoDbProxy.updateNhlPlayByPlayProcessingItem(nhlPlayByPlayProcessingItem,
                 nhlLiveGameFeedResponse);
+        System.out.println(format("Saved updated NhlPlayByPlayProcessingItem to DyanmoDB: %s", updatedItem));
 
-        // TODO | Check if the game has ended, and if it has delete the CloudWatch Event Rule so no more events are sent.
         deleteCloudWatchEventRulesForCompletedGame(nhlLiveGameFeedResponse);
 
         return updatedItem;
@@ -130,6 +131,8 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
                     .eventBusName(eventBusName)
                     .build();
             cloudWatchEventsClient.deleteRule(deleteRuleRequest);
+            System.out.println(format("Successfully deleted CloudWatch Event Rule %s , because the corresponding game has ended",
+                    eventRuleName));
         }
     }
 }
