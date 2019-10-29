@@ -11,8 +11,6 @@ import iansteph.nhlp3.eventpublisher.model.event.PlayEvent;
 import java.util.HashMap;
 import java.util.Map;
 
-import static java.lang.String.format;
-
 public class EventPublisherProxy {
 
     private final AmazonSNS amazonSnsClient;
@@ -28,7 +26,6 @@ public class EventPublisherProxy {
         final PublishRequest request = new PublishRequest(nhlPlayByPlayEventsTopicArn, convertPlayEventToString(playEventToPublish))
                 .withMessageAttributes(retrieveMessageAttributes(playEventToPublish, homeTeamId, awayTeamId));
         final PublishResult publishResult = amazonSnsClient.publish(request);
-        System.out.println(format("Successfully published message: %s", request));
         return publishResult;
     }
 
@@ -46,7 +43,7 @@ public class EventPublisherProxy {
         final String numberDataType = "Number";
         final Map<String, MessageAttributeValue> messageAttributeValueMap = new HashMap<>();
         messageAttributeValueMap.put("eventTypeId", new MessageAttributeValue()
-                .withDataType(numberDataType)
+                .withDataType("String")
                 .withStringValue(playEvent.getPlay().getResult().getEventTypeId()));
         messageAttributeValueMap.put("homeTeamId", new MessageAttributeValue()
                 .withDataType(numberDataType)

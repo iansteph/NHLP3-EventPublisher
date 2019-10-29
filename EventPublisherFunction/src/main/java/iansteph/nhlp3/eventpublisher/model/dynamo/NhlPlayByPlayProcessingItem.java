@@ -27,7 +27,7 @@ public class NhlPlayByPlayProcessingItem {
     public int getLastProcessedEventIndex() { return lastProcessedEventIndex; }
     public void setLastProcessedEventIndex(final int lastProcessedEventIndex) { this.lastProcessedEventIndex = lastProcessedEventIndex; }
 
-    @DynamoDBAttribute
+    @DynamoDBAttribute(attributeName = "isIntermission")
     public boolean isIntermission() { return isIntermission; }
     public void setIsIntermission(final boolean isIntermission) { this.isIntermission = isIntermission; }
 

@@ -17,7 +17,7 @@ public class NhlPlayByPlayClient {
         final UriComponents uriComponents = UriComponentsBuilder.newInstance()
                 .scheme("http")
                 .host("statsapi.web.nhl.com")
-                .path("game/{gameId}/feed/live/diffPatch")
+                .path("api/v1/game/{gameId}/feed/live/diffPatch")
                 .queryParam("startTimecode", lastProcessedTimestamp)
                 .buildAndExpand(gameId);
         return restTemplate.getForObject(uriComponents.toUri(), NhlLiveGameFeedResponse.class);

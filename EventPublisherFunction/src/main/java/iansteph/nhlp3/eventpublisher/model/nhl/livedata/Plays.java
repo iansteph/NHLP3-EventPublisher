@@ -1,6 +1,7 @@
 package iansteph.nhlp3.eventpublisher.model.nhl.livedata;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import iansteph.nhlp3.eventpublisher.model.nhl.livedata.plays.Period;
 import iansteph.nhlp3.eventpublisher.model.nhl.livedata.plays.Play;
 
 import java.util.List;
@@ -10,9 +11,9 @@ import java.util.Objects;
 public class Plays {
 
     private List<Play> allPlays;
-    private List<Play> scoringPlays;
-    private List<Play> penaltyPlays;
-    private List<Play> playsByPeriod;
+    private List<Integer> scoringPlays;
+    private List<Integer> penaltyPlays;
+    private List<Period> playsByPeriod;
     private Play currentPlay;
 
     public List<Play> getAllPlays() {
@@ -23,27 +24,27 @@ public class Plays {
         this.allPlays = allPlays;
     }
 
-    public List<Play> getScoringPlays() {
+    public List<Integer> getScoringPlays() {
         return scoringPlays;
     }
 
-    public void setScoringPlays(final List<Play> scoringPlays) {
+    public void setScoringPlays(final List<Integer> scoringPlays) {
         this.scoringPlays = scoringPlays;
     }
 
-    public List<Play> getPenaltyPlays() {
+    public List<Integer> getPenaltyPlays() {
         return penaltyPlays;
     }
 
-    public void setPenaltyPlays(final List<Play> penaltyPlays) {
+    public void setPenaltyPlays(final List<Integer> penaltyPlays) {
         this.penaltyPlays = penaltyPlays;
     }
 
-    public List<Play> getPlaysByPeriod() {
+    public List<Period> getPlaysByPeriod() {
         return playsByPeriod;
     }
 
-    public void setPlaysByPeriod(final List<Play> playsByPeriod) {
+    public void setPlaysByPeriod(final List<Period> playsByPeriod) {
         this.playsByPeriod = playsByPeriod;
     }
 

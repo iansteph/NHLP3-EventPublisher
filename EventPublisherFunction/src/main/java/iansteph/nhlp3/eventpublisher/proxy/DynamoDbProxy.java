@@ -1,12 +1,14 @@
 package iansteph.nhlp3.eventpublisher.proxy;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
+import com.amazonaws.services.dynamodbv2.xspec.S;
 import com.google.common.hash.Hashing;
 import iansteph.nhlp3.eventpublisher.handler.EventPublisherRequest;
 import iansteph.nhlp3.eventpublisher.model.dynamo.NhlPlayByPlayProcessingItem;
 import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 
 public class DynamoDbProxy {
 
@@ -22,8 +24,11 @@ public class DynamoDbProxy {
         final NhlPlayByPlayProcessingItem item = new NhlPlayByPlayProcessingItem();
         final String compositeGameId = generateCompositeGameId(request);
         item.setCompositeGameId(compositeGameId);
+        final NhlPlayByPlayProcessingItem retrievedItem = dynamoDBMapper.load(item);
 
-        return dynamoDBMapper.load(item);
+        checkNotNull(retrievedItem);
+        System.out.println(format("Retrieved NhlPlayByPlayProcessingItem: %s", retrievedItem));
+        return retrievedItem;
     }
 
     private String generateCompositeGameId(final EventPublisherRequest request) {
@@ -42,7 +47,7 @@ public class DynamoDbProxy {
         itemToUpdate.setLastProcessedEventIndex(nhlLiveGameFeedResponse.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx());
         itemToUpdate.setLastProcessedTimeStamp(nhlLiveGameFeedResponse.getMetaData().getTimeStamp());
 
-        dynamoDBMapper.save(nhlLiveGameFeedResponse);
+        dynamoDBMapper.save(itemToUpdate);
 
         return itemToUpdate;
     }

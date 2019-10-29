@@ -7,6 +7,7 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.sns.AmazonSNSClientBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import iansteph.nhlp3.eventpublisher.client.NhlPlayByPlayClient;
 import iansteph.nhlp3.eventpublisher.model.dynamo.NhlPlayByPlayProcessingItem;
 import iansteph.nhlp3.eventpublisher.model.event.PlayEvent;
@@ -16,6 +17,7 @@ import iansteph.nhlp3.eventpublisher.model.nhl.livedata.plays.Play;
 import iansteph.nhlp3.eventpublisher.proxy.DynamoDbProxy;
 import iansteph.nhlp3.eventpublisher.proxy.EventPublisherProxy;
 import iansteph.nhlp3.eventpublisher.proxy.NhlPlayByPlayProxy;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.client.RestTemplate;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.services.cloudwatchevents.CloudWatchEventsClient;
@@ -44,7 +46,7 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
         final DynamoDBMapper dynamoDbMapper = new DynamoDBMapper(amazonDynamoDB);
         this.dynamoDbProxy = new DynamoDbProxy(dynamoDbMapper);
 
-        final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(new RestTemplate());
+        final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(createRestTemplateAndRegisterCustomObjectMapper());
         this.nhlPlayByPlayProxy = new NhlPlayByPlayProxy(nhlPlayByPlayClient);
 
         this.eventPublisherProxy = new EventPublisherProxy(AmazonSNSClientBuilder.defaultClient(), new ObjectMapper());
@@ -52,6 +54,16 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
         this.cloudWatchEventsClient = CloudWatchEventsClient.builder()
                 .httpClientBuilder(ApacheHttpClient.builder())
                 .build();
+    }
+
+    private RestTemplate createRestTemplateAndRegisterCustomObjectMapper() {
+        final RestTemplate restTemplate = new RestTemplate();
+        final MappingJackson2HttpMessageConverter messageConverter = restTemplate.getMessageConverters().stream()
+                .filter(MappingJackson2HttpMessageConverter.class::isInstance)
+                .map(MappingJackson2HttpMessageConverter.class::cast)
+                .findFirst().orElseThrow( () -> new RuntimeException("MappingJackson2HttpMessageConverter not found"));
+        messageConverter.getObjectMapper().registerModule(new JavaTimeModule());
+        return restTemplate;
     }
 
     public EventPublisherHandler(final DynamoDbProxy dynamoDbProxy, final NhlPlayByPlayProxy nhlPlayByPlayProxy,
@@ -91,13 +103,13 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
             final NhlLiveGameFeedResponse nhlLiveGameFeedResponse) {
         final int lastProcessedEventIndex = nhlPlayByPlayProcessingItem.getLastProcessedEventIndex();
 
-        // Add 1 because lastEventIndex was already processed
-        final int startPlayIndex = lastProcessedEventIndex + 1;
+        // Add 1 because lastEventIndex was already processed (unless index is 0 then nothing has been processed yet)
+        final int startPlayIndex = lastProcessedEventIndex == 0 ? lastProcessedEventIndex : lastProcessedEventIndex + 1;
 
         // Add 1 because the current play should be included
         final int currentPlayIndex = nhlLiveGameFeedResponse.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx();
         final int endPlayIndex = currentPlayIndex + 1;
-        if (lastProcessedEventIndex == currentPlayIndex) {
+        if (lastProcessedEventIndex == currentPlayIndex && currentPlayIndex != 0) {
             return Collections.emptyList(); // There is nothing to publish, because there are no new events
         }
         else {
