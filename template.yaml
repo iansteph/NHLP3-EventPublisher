@@ -11,7 +11,7 @@ Resources:
       Runtime: java8
       Description: Event publisher function for NHLP3 to publish each play-by-play event for each game
       MemorySize: 256
-      Timeout: 30
+      Timeout: 60 # It took 42-43s to process 348 events @ 256MB memory
       Role:
         Fn::GetAtt:
           - EventPublisherExecutionRole
