@@ -51,8 +51,7 @@ public class DyanmoDbProxyTest extends UnitTestBase {
         final NhlPlayByPlayProcessingItem nhlPlayByPlayProcessingItem = new NhlPlayByPlayProcessingItem();
         final String compositeGameId = "compositeGameId";
         nhlPlayByPlayProcessingItem.setCompositeGameId(compositeGameId);
-        nhlPlayByPlayProcessingItem.setIsIntermission(false);
-        nhlPlayByPlayProcessingItem.setHasGameEnded(false);
+        nhlPlayByPlayProcessingItem.setInIntermission(false);
         nhlPlayByPlayProcessingItem.setLastProcessedTimeStamp("20191025_004123");
         nhlPlayByPlayProcessingItem.setLastProcessedEventIndex(100);
         final Status status = new Status();
@@ -86,8 +85,7 @@ public class DyanmoDbProxyTest extends UnitTestBase {
 
         assertThat(response, is(notNullValue()));
         assertThat(response.getCompositeGameId(), is(compositeGameId));
-        assertTrue(response.isIntermission());
-        assertTrue(response.hasGameEnded());
+        assertTrue(response.inIntermission());
         assertThat(response.getLastProcessedTimeStamp(), is(expectedTimestamp));
         assertThat(response.getLastProcessedEventIndex(), is(expectedEventIndex));
     }

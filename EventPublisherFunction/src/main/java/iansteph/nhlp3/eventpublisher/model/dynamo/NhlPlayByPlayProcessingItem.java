@@ -3,8 +3,11 @@ package iansteph.nhlp3.eventpublisher.model.dynamo;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBHashKey;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTyped;
 
 import java.util.Objects;
+
+import static com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapperFieldModel.DynamoDBAttributeType;;
 
 @DynamoDBTable(tableName="NhlPlayByPlayProcessingAggregate")
 public class NhlPlayByPlayProcessingItem {
@@ -12,8 +15,9 @@ public class NhlPlayByPlayProcessingItem {
     private String compositeGameId;
     private String lastProcessedTimeStamp;
     private int lastProcessedEventIndex;
-    private boolean isIntermission;
-    private boolean hasGameEnded;
+    private boolean inIntermission;
+
+    public NhlPlayByPlayProcessingItem() {}
 
     @DynamoDBHashKey
     public String getCompositeGameId() { return compositeGameId; }
@@ -27,18 +31,14 @@ public class NhlPlayByPlayProcessingItem {
     public int getLastProcessedEventIndex() { return lastProcessedEventIndex; }
     public void setLastProcessedEventIndex(final int lastProcessedEventIndex) { this.lastProcessedEventIndex = lastProcessedEventIndex; }
 
-    @DynamoDBAttribute(attributeName = "isIntermission")
-    public boolean isIntermission() { return isIntermission; }
-    public void setIsIntermission(final boolean isIntermission) { this.isIntermission = isIntermission; }
-
     @DynamoDBAttribute
-    public boolean hasGameEnded() { return hasGameEnded; }
-    public void  setHasGameEnded(final boolean hasGameEnded) { this.hasGameEnded = hasGameEnded; }
+    @DynamoDBTyped(DynamoDBAttributeType.BOOL)
+    public Boolean inIntermission() { return inIntermission; }
+    public void setInIntermission(final boolean isIntermission) { this.inIntermission = isIntermission; }
 
     public String toString() {
         return String.format("NhlPlayByPlayProcessingItem(compositeGameId=%s,lastProcessedTimeStamp=%s,lastProcessedEventIndex=%s," +
-                "isIntermission=%s,hasGameEnded=%s)", compositeGameId, lastProcessedTimeStamp, lastProcessedEventIndex, isIntermission,
-                hasGameEnded);
+                "inIntermission=%s)", compositeGameId, lastProcessedTimeStamp, lastProcessedEventIndex, inIntermission);
     }
 
     @Override
@@ -47,14 +47,13 @@ public class NhlPlayByPlayProcessingItem {
         if (o == null || getClass() != o.getClass()) return false;
         NhlPlayByPlayProcessingItem that = (NhlPlayByPlayProcessingItem) o;
         return lastProcessedEventIndex == that.lastProcessedEventIndex &&
-                isIntermission == that.isIntermission &&
-                hasGameEnded == that.hasGameEnded &&
+                inIntermission == that.inIntermission &&
                 Objects.equals(compositeGameId, that.compositeGameId) &&
                 Objects.equals(lastProcessedTimeStamp, that.lastProcessedTimeStamp);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(compositeGameId, lastProcessedTimeStamp, lastProcessedEventIndex, isIntermission, hasGameEnded);
+        return Objects.hash(compositeGameId, lastProcessedTimeStamp, lastProcessedEventIndex, inIntermission);
     }
 }

@@ -1,7 +1,6 @@
 package iansteph.nhlp3.eventpublisher.proxy;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
-import com.amazonaws.services.dynamodbv2.xspec.S;
 import com.google.common.hash.Hashing;
 import iansteph.nhlp3.eventpublisher.handler.EventPublisherRequest;
 import iansteph.nhlp3.eventpublisher.model.dynamo.NhlPlayByPlayProcessingItem;
@@ -42,10 +41,9 @@ public class DynamoDbProxy {
         checkNotNull(itemToUpdate);
         checkNotNull(nhlLiveGameFeedResponse);
 
-        itemToUpdate.setHasGameEnded(nhlLiveGameFeedResponse.getGameData().getStatus().isGameEnded());
-        itemToUpdate.setIsIntermission(nhlLiveGameFeedResponse.getLiveData().getLinescore().getIntermissionInfo().isInIntermission());
-        itemToUpdate.setLastProcessedEventIndex(nhlLiveGameFeedResponse.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx());
         itemToUpdate.setLastProcessedTimeStamp(nhlLiveGameFeedResponse.getMetaData().getTimeStamp());
+        itemToUpdate.setLastProcessedEventIndex(nhlLiveGameFeedResponse.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx());
+        itemToUpdate.setInIntermission(nhlLiveGameFeedResponse.getLiveData().getLinescore().getIntermissionInfo().isInIntermission());
 
         dynamoDBMapper.save(itemToUpdate);
 

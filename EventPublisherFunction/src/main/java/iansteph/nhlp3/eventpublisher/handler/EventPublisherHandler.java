@@ -75,11 +75,12 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
     }
 
     public NhlPlayByPlayProcessingItem handleRequest(final EventPublisherRequest eventPublisherRequest, final Context context) {
+        System.out.println("Retrieving NhlPlayByPlayProcessingItem from DynamoDB");
         final NhlPlayByPlayProcessingItem nhlPlayByPlayProcessingItem =
                 dynamoDbProxy.getNhlPlayByPlayProcessingItem(eventPublisherRequest);
-        System.out.println(format("Retrieving NhlPlayByPlayProcessingItem from DynamoDB: %s", nhlPlayByPlayProcessingItem));
-        final String lastProcessedTimestamp = nhlPlayByPlayProcessingItem.getLastProcessedTimeStamp();
+        System.out.println(format("Retrieved NhlPlayByPlayProcessingItem from DynamoDB: %s", nhlPlayByPlayProcessingItem));
 
+        final String lastProcessedTimestamp = nhlPlayByPlayProcessingItem.getLastProcessedTimeStamp();
         final NhlLiveGameFeedResponse nhlLiveGameFeedResponse = nhlPlayByPlayProxy.getPlayByPlayEventsSinceLastProcessedTimestamp(
                 lastProcessedTimestamp, eventPublisherRequest);
         System.out.println(format("Calling NHL Play-by-Play timestamp diff API: %s", nhlLiveGameFeedResponse));
