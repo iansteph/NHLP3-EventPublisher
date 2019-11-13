@@ -38,10 +38,6 @@ Resources:
               Service: events.amazonaws.com
             Action:
               - sts:AssumeRole
-              - lambda:InvokeFunction
-            Condition:
-              ArnLike:
-                AWS:SourceArn: 'arn:aws:events:us-east-1:627812672245:rule/GameId-*'
 
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
@@ -71,6 +67,20 @@ Resources:
                   - events:RemoveTargets
                   - events:DeleteRule
                 Resource: '*'
+              -
+                Sid: TrustCloudWatchEventRulesToInvokeLambdaFunction # See here: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/resource-based-policies-cwe.html
+                Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  Fn::GetAtt:
+                    - EventPublisherFunction
+                    - Arn
+                Principal:
+                  Service: events.amazonaws.com
+                Condition:
+                  ArnLike:
+                    AWS:SourceArn: 'arn:aws:events:us-east-1:627812672245:rule/GameId-*'
 
   NHLP3EventsSnsTopic:
     Type: AWS::SNS::Topic
