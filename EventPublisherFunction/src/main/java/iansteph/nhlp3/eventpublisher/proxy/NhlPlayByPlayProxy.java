@@ -27,14 +27,17 @@ public class NhlPlayByPlayProxy {
     }
 
     private void validateArguments(final String lastProcessedTimestamp, final EventPublisherRequest eventPublisherRequest) {
-        checkNotNull(eventPublisherRequest);
+        checkNotNull(eventPublisherRequest, "Invalid Argument: EventPublisherRequest must be non-null when calling" +
+                "NhlPlayByPlayProxy::getPlayByPlayEventsSinceLastProcessedTimestamp");
         validateLastProcessedTimestamp(lastProcessedTimestamp);
     }
 
     private void validateLastProcessedTimestamp(final String lastProcessedTimestamp) {
         // According to https://gitlab.com/dword4/nhlapi/blob/master/stats-api.md#game it is of the format yyyymmdd_hhmmss
-        checkNotNull(lastProcessedTimestamp);
-        checkArgument(lastProcessedTimestamp.length() == 15);
+        checkNotNull(lastProcessedTimestamp, "Invalid Argument: lastProcessedTimestamp must be non-null when calling" +
+                "NhlPlayByPlayProxy::getPlayByPlayEventsSinceLastProcessedTimestamp");
+        checkArgument(lastProcessedTimestamp.length() == 15, "Invalid Argument: LastProcessedTimestamp must match" +
+                "pattern for the NHL Play-by-Play API");
 
         final String date = lastProcessedTimestamp.substring(0, 8);
         LocalDate.parse(date, DateTimeFormatter.BASIC_ISO_DATE);

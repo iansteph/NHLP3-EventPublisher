@@ -18,14 +18,15 @@ public class DynamoDbProxy {
     }
 
     public NhlPlayByPlayProcessingItem getNhlPlayByPlayProcessingItem(final EventPublisherRequest request) {
-        checkNotNull(request);
+        checkNotNull(request, "EventPublisherRequest must not be null passed as parameter when calling " +
+                "DynamoDbProxy::getNhlPlayByPlayProcessingItem");
 
         final NhlPlayByPlayProcessingItem item = new NhlPlayByPlayProcessingItem();
         final String compositeGameId = generateCompositeGameId(request);
         item.setCompositeGameId(compositeGameId);
         final NhlPlayByPlayProcessingItem retrievedItem = dynamoDBMapper.load(item);
 
-        checkNotNull(retrievedItem);
+        checkNotNull(retrievedItem, format("Retrieved item was null for EventPublisherRequest: %s", request));
         System.out.println(format("Retrieved NhlPlayByPlayProcessingItem: %s", retrievedItem));
         return retrievedItem;
     }
@@ -38,8 +39,10 @@ public class DynamoDbProxy {
 
     public NhlPlayByPlayProcessingItem updateNhlPlayByPlayProcessingItem(final NhlPlayByPlayProcessingItem itemToUpdate,
             final NhlLiveGameFeedResponse nhlLiveGameFeedResponse) {
-        checkNotNull(itemToUpdate);
-        checkNotNull(nhlLiveGameFeedResponse);
+        checkNotNull(itemToUpdate, "Item must be non-null when passed as parameter when calling " +
+                "DynamoDbProxy::updateNhlPlayByPlayProcessingItem");
+        checkNotNull(nhlLiveGameFeedResponse, "NhlLiveGameFeedResponse must be non-null when passed as parameter when " +
+                "calling DynamoDbProxy::updateNhlPlayByPlayProcessingItem");
 
         itemToUpdate.setLastProcessedTimeStamp(nhlLiveGameFeedResponse.getMetaData().getTimeStamp());
         itemToUpdate.setLastProcessedEventIndex(nhlLiveGameFeedResponse.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx());

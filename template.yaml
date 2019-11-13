@@ -12,6 +12,7 @@ Resources:
       Description: Event publisher function for NHLP3 to publish each play-by-play event for each game
       MemorySize: 256
       Timeout: 60 # It took 42-43s to process 348 events @ 256MB memory
+      Tracing: Active
       Role:
         Fn::GetAtt:
           - EventPublisherExecutionRole
@@ -64,6 +65,11 @@ Resources:
                   - events:RemoveTargets
                   - events:DeleteRule
                 Resource: '*'
+              -
+                Effect: Allow
+                  Action:
+                    - xray:*
+                  Resource: '*'
 
   NHLP3EventsSnsTopic:
     Type: AWS::SNS::Topic
