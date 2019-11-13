@@ -38,6 +38,11 @@ Resources:
               Service: events.amazonaws.com
             Action:
               - sts:AssumeRole
+              - lambda:InvokeFunction
+            Condition:
+              ArnLike:
+                AWS:SourceArn: 'arn:aws:events:us-east-1:627812672245:rule/GameId-*'
+
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         - arn:aws:iam::aws:policy/AWSXrayFullAccess
