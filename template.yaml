@@ -67,9 +67,9 @@ Resources:
                 Resource: '*'
               -
                 Effect: Allow
-                  Action:
-                    - xray:*
-                  Resource: '*'
+                Action:
+                  - xray:*
+                Resource: '*'
 
   NHLP3EventsSnsTopic:
     Type: AWS::SNS::Topic
