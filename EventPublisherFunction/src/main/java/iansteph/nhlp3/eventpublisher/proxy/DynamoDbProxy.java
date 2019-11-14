@@ -65,6 +65,7 @@ public class DynamoDbProxy {
             itemToUpdate.setInIntermission(nhlLiveGameFeedResponse.getLiveData().getLinescore().getIntermissionInfo().isInIntermission());
 
             dynamoDBMapper.save(itemToUpdate);
+            logger.info(format("Saved updated NhlPlayByPlayProcessingItem to DyanmoDB: %s", itemToUpdate));
 
             return itemToUpdate;
         }

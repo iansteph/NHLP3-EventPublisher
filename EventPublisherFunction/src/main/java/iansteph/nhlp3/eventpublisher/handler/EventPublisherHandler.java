@@ -78,15 +78,12 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
     }
 
     public NhlPlayByPlayProcessingItem handleRequest(final EventPublisherRequest eventPublisherRequest, final Context context) {
-        logger.info("Retrieving NhlPlayByPlayProcessingItem from DynamoDB");
         final NhlPlayByPlayProcessingItem nhlPlayByPlayProcessingItem =
                 dynamoDbProxy.getNhlPlayByPlayProcessingItem(eventPublisherRequest);
-        logger.info(format("Retrieved NhlPlayByPlayProcessingItem from DynamoDB: %s", nhlPlayByPlayProcessingItem));
 
         final String lastProcessedTimestamp = nhlPlayByPlayProcessingItem.getLastProcessedTimeStamp();
         final NhlLiveGameFeedResponse nhlLiveGameFeedResponse = nhlPlayByPlayProxy.getPlayByPlayEventsSinceLastProcessedTimestamp(
                 lastProcessedTimestamp, eventPublisherRequest);
-        logger.info(format("Calling NHL Play-by-Play timestamp diff API: %s", nhlLiveGameFeedResponse));
 
         final List<PlayEvent> playEvents = splitPlayByPlayResponseIntoPlaysSinceLastTimestamp(nhlPlayByPlayProcessingItem,
                 nhlLiveGameFeedResponse);
@@ -96,7 +93,6 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
 
         final NhlPlayByPlayProcessingItem updatedItem = dynamoDbProxy.updateNhlPlayByPlayProcessingItem(nhlPlayByPlayProcessingItem,
                 nhlLiveGameFeedResponse);
-        logger.info(format("Saved updated NhlPlayByPlayProcessingItem to DyanmoDB: %s", updatedItem));
 
         deleteCloudWatchEventRulesForCompletedGame(nhlLiveGameFeedResponse);
 
@@ -133,6 +129,9 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
             final int gamePk = nhlLiveGameFeedResponse.getGamePk();
             final String eventRuleName = String.format("GameId-%s", gamePk);
             final String eventBusName = "default";
+
+            logger.info(format("Attempting to delete CloudWatch Event Rule %s , because the corresponding game has ended",
+                    eventRuleName));
 
             // Remove all Targets for CloudWatch Event Rule before it can be removed
             final RemoveTargetsRequest removeTargetsRequest = RemoveTargetsRequest.builder()
