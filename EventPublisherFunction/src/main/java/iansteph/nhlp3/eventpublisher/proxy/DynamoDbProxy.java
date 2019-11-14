@@ -24,6 +24,7 @@ public class DynamoDbProxy {
         final NhlPlayByPlayProcessingItem item = new NhlPlayByPlayProcessingItem();
         final String compositeGameId = generateCompositeGameId(request);
         item.setCompositeGameId(compositeGameId);
+        System.out.println(format("Retrieving NhlPlayByPlayProcessingItem for primary key: %s", compositeGameId));
         final NhlPlayByPlayProcessingItem retrievedItem = dynamoDBMapper.load(item);
 
         checkNotNull(retrievedItem, format("Retrieved item was null for EventPublisherRequest: %s", request));
