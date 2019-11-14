@@ -17,6 +17,8 @@ import iansteph.nhlp3.eventpublisher.model.nhl.livedata.plays.Play;
 import iansteph.nhlp3.eventpublisher.proxy.DynamoDbProxy;
 import iansteph.nhlp3.eventpublisher.proxy.EventPublisherProxy;
 import iansteph.nhlp3.eventpublisher.proxy.NhlPlayByPlayProxy;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.client.RestTemplate;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
@@ -40,6 +42,7 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
     private final EventPublisherProxy eventPublisherProxy;
     private final NhlPlayByPlayProxy nhlPlayByPlayProxy;
 
+    private static final Logger logger = LogManager.getLogger(EventPublisherHandler.class);
 
     public EventPublisherHandler() {
         final AmazonDynamoDB amazonDynamoDB = AmazonDynamoDBClientBuilder.standard().build();
@@ -75,25 +78,25 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
     }
 
     public NhlPlayByPlayProcessingItem handleRequest(final EventPublisherRequest eventPublisherRequest, final Context context) {
-        System.out.println("Retrieving NhlPlayByPlayProcessingItem from DynamoDB");
+        logger.info("Retrieving NhlPlayByPlayProcessingItem from DynamoDB");
         final NhlPlayByPlayProcessingItem nhlPlayByPlayProcessingItem =
                 dynamoDbProxy.getNhlPlayByPlayProcessingItem(eventPublisherRequest);
-        System.out.println(format("Retrieved NhlPlayByPlayProcessingItem from DynamoDB: %s", nhlPlayByPlayProcessingItem));
+        logger.info(format("Retrieved NhlPlayByPlayProcessingItem from DynamoDB: %s", nhlPlayByPlayProcessingItem));
 
         final String lastProcessedTimestamp = nhlPlayByPlayProcessingItem.getLastProcessedTimeStamp();
         final NhlLiveGameFeedResponse nhlLiveGameFeedResponse = nhlPlayByPlayProxy.getPlayByPlayEventsSinceLastProcessedTimestamp(
                 lastProcessedTimestamp, eventPublisherRequest);
-        System.out.println(format("Calling NHL Play-by-Play timestamp diff API: %s", nhlLiveGameFeedResponse));
+        logger.info(format("Calling NHL Play-by-Play timestamp diff API: %s", nhlLiveGameFeedResponse));
 
         final List<PlayEvent> playEvents = splitPlayByPlayResponseIntoPlaysSinceLastTimestamp(nhlPlayByPlayProcessingItem,
                 nhlLiveGameFeedResponse);
-        System.out.println(format("%s event(s) since last event processed. Events to process: %s", playEvents.size(), playEvents));
+        logger.info(format("%s event(s) since last event processed. Events to process: %s", playEvents.size(), playEvents));
         final Teams teamsInPlay = nhlLiveGameFeedResponse.getGameData().getTeams();
         playEvents.forEach(p -> eventPublisherProxy.publish(p, teamsInPlay.getHome().getId(), teamsInPlay.getAway().getId()));
 
         final NhlPlayByPlayProcessingItem updatedItem = dynamoDbProxy.updateNhlPlayByPlayProcessingItem(nhlPlayByPlayProcessingItem,
                 nhlLiveGameFeedResponse);
-        System.out.println(format("Saved updated NhlPlayByPlayProcessingItem to DyanmoDB: %s", updatedItem));
+        logger.info(format("Saved updated NhlPlayByPlayProcessingItem to DyanmoDB: %s", updatedItem));
 
         deleteCloudWatchEventRulesForCompletedGame(nhlLiveGameFeedResponse);
 
@@ -111,7 +114,8 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
         final int currentPlayIndex = nhlLiveGameFeedResponse.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx();
         final int endPlayIndex = currentPlayIndex + 1;
         if (lastProcessedEventIndex == currentPlayIndex && currentPlayIndex != 0) {
-            return Collections.emptyList(); // There is nothing to publish, because there are no new events
+            logger.info("No new events to publish");
+            return Collections.emptyList();
         }
         else {
             final List<Play> playsToPublish = nhlLiveGameFeedResponse.getLiveData().getPlays().getAllPlays().subList(startPlayIndex,
@@ -144,7 +148,7 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
                     .eventBusName(eventBusName)
                     .build();
             cloudWatchEventsClient.deleteRule(deleteRuleRequest);
-            System.out.println(format("Successfully deleted CloudWatch Event Rule %s , because the corresponding game has ended",
+            logger.info(format("Successfully deleted CloudWatch Event Rule %s , because the corresponding game has ended",
                     eventRuleName));
         }
     }

@@ -5,6 +5,8 @@ import com.google.common.hash.Hashing;
 import iansteph.nhlp3.eventpublisher.handler.EventPublisherRequest;
 import iansteph.nhlp3.eventpublisher.model.dynamo.NhlPlayByPlayProcessingItem;
 import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -12,6 +14,8 @@ import static java.lang.String.format;
 public class DynamoDbProxy {
 
     private final DynamoDBMapper dynamoDBMapper;
+
+    private static final Logger logger = LogManager.getLogger(DynamoDbProxy.class);
 
     public DynamoDbProxy(final DynamoDBMapper dynamoDbMapper) {
         this.dynamoDBMapper = dynamoDbMapper;
@@ -24,11 +28,11 @@ public class DynamoDbProxy {
         final NhlPlayByPlayProcessingItem item = new NhlPlayByPlayProcessingItem();
         final String compositeGameId = generateCompositeGameId(request);
         item.setCompositeGameId(compositeGameId);
-        System.out.println(format("Retrieving NhlPlayByPlayProcessingItem for primary key: %s", compositeGameId));
+        logger.info(format("Retrieving NhlPlayByPlayProcessingItem for primary key: %s", compositeGameId));
         final NhlPlayByPlayProcessingItem retrievedItem = dynamoDBMapper.load(item);
 
         checkNotNull(retrievedItem, format("Retrieved item was null for EventPublisherRequest: %s", request));
-        System.out.println(format("Retrieved NhlPlayByPlayProcessingItem: %s", retrievedItem));
+        logger.info(format("Retrieved NhlPlayByPlayProcessingItem: %s", retrievedItem));
         return retrievedItem;
     }
 
