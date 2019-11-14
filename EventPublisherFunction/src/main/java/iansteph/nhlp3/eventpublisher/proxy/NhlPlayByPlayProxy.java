@@ -3,6 +3,8 @@ package iansteph.nhlp3.eventpublisher.proxy;
 import iansteph.nhlp3.eventpublisher.client.NhlPlayByPlayClient;
 import iansteph.nhlp3.eventpublisher.handler.EventPublisherRequest;
 import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -15,15 +17,23 @@ public class NhlPlayByPlayProxy {
 
     private final NhlPlayByPlayClient nhlPlayByPlayClient;
 
+    private static final Logger logger = LogManager.getLogger(NhlPlayByPlayProxy.class);
+
     public NhlPlayByPlayProxy(final NhlPlayByPlayClient nhlPlayByPlayClient) {
         this.nhlPlayByPlayClient = nhlPlayByPlayClient;
     }
 
     public NhlLiveGameFeedResponse getPlayByPlayEventsSinceLastProcessedTimestamp(final String lastProcessedTimestamp,
             final EventPublisherRequest eventPublisherRequest) {
-        validateArguments(lastProcessedTimestamp, eventPublisherRequest);
-        return nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(eventPublisherRequest.getGameId(),
-                lastProcessedTimestamp);
+        try {
+            validateArguments(lastProcessedTimestamp, eventPublisherRequest);
+            return nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(eventPublisherRequest.getGameId(),
+                    lastProcessedTimestamp);
+        }
+        catch (NullPointerException | IllegalArgumentException e) {
+            logger.error(e);
+            throw e;
+        }
     }
 
     private void validateArguments(final String lastProcessedTimestamp, final EventPublisherRequest eventPublisherRequest) {

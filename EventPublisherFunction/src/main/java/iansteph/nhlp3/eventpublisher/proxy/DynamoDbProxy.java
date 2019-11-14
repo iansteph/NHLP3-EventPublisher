@@ -22,18 +22,24 @@ public class DynamoDbProxy {
     }
 
     public NhlPlayByPlayProcessingItem getNhlPlayByPlayProcessingItem(final EventPublisherRequest request) {
-        checkNotNull(request, "EventPublisherRequest must not be null passed as parameter when calling " +
-                "DynamoDbProxy::getNhlPlayByPlayProcessingItem");
+        try {
+            checkNotNull(request, "EventPublisherRequest must not be null passed as parameter when calling " +
+                    "DynamoDbProxy::getNhlPlayByPlayProcessingItem");
 
-        final NhlPlayByPlayProcessingItem item = new NhlPlayByPlayProcessingItem();
-        final String compositeGameId = generateCompositeGameId(request);
-        item.setCompositeGameId(compositeGameId);
-        logger.info(format("Retrieving NhlPlayByPlayProcessingItem for primary key: %s", compositeGameId));
-        final NhlPlayByPlayProcessingItem retrievedItem = dynamoDBMapper.load(item);
+            final NhlPlayByPlayProcessingItem item = new NhlPlayByPlayProcessingItem();
+            final String compositeGameId = generateCompositeGameId(request);
+            item.setCompositeGameId(compositeGameId);
+            logger.info(format("Retrieving NhlPlayByPlayProcessingItem for primary key: %s", compositeGameId));
+            final NhlPlayByPlayProcessingItem retrievedItem = dynamoDBMapper.load(item);
 
-        checkNotNull(retrievedItem, format("Retrieved item was null for EventPublisherRequest: %s", request));
-        logger.info(format("Retrieved NhlPlayByPlayProcessingItem: %s", retrievedItem));
-        return retrievedItem;
+            checkNotNull(retrievedItem, format("Retrieved item was null for EventPublisherRequest: %s", request));
+            logger.info(format("Retrieved NhlPlayByPlayProcessingItem: %s", retrievedItem));
+            return retrievedItem;
+        }
+        catch (NullPointerException e) {
+            logger.error(e);
+            throw e;
+        }
     }
 
     private String generateCompositeGameId(final EventPublisherRequest request) {
@@ -44,17 +50,23 @@ public class DynamoDbProxy {
 
     public NhlPlayByPlayProcessingItem updateNhlPlayByPlayProcessingItem(final NhlPlayByPlayProcessingItem itemToUpdate,
             final NhlLiveGameFeedResponse nhlLiveGameFeedResponse) {
-        checkNotNull(itemToUpdate, "Item must be non-null when passed as parameter when calling " +
-                "DynamoDbProxy::updateNhlPlayByPlayProcessingItem");
-        checkNotNull(nhlLiveGameFeedResponse, "NhlLiveGameFeedResponse must be non-null when passed as parameter when " +
-                "calling DynamoDbProxy::updateNhlPlayByPlayProcessingItem");
+        try {
+            checkNotNull(itemToUpdate, "Item must be non-null when passed as parameter when calling " +
+                    "DynamoDbProxy::updateNhlPlayByPlayProcessingItem");
+            checkNotNull(nhlLiveGameFeedResponse, "NhlLiveGameFeedResponse must be non-null when passed as parameter when " +
+                    "calling DynamoDbProxy::updateNhlPlayByPlayProcessingItem");
 
-        itemToUpdate.setLastProcessedTimeStamp(nhlLiveGameFeedResponse.getMetaData().getTimeStamp());
-        itemToUpdate.setLastProcessedEventIndex(nhlLiveGameFeedResponse.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx());
-        itemToUpdate.setInIntermission(nhlLiveGameFeedResponse.getLiveData().getLinescore().getIntermissionInfo().isInIntermission());
+            itemToUpdate.setLastProcessedTimeStamp(nhlLiveGameFeedResponse.getMetaData().getTimeStamp());
+            itemToUpdate.setLastProcessedEventIndex(nhlLiveGameFeedResponse.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx());
+            itemToUpdate.setInIntermission(nhlLiveGameFeedResponse.getLiveData().getLinescore().getIntermissionInfo().isInIntermission());
 
-        dynamoDBMapper.save(itemToUpdate);
+            dynamoDBMapper.save(itemToUpdate);
 
-        return itemToUpdate;
+            return itemToUpdate;
+        }
+        catch (NullPointerException e) {
+            logger.error(e);
+            throw e;
+        }
     }
 }
