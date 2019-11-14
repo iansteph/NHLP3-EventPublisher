@@ -44,8 +44,12 @@ public class DynamoDbProxy {
 
     private String generateCompositeGameId(final EventPublisherRequest request) {
         final int gameId = request.getGameId();
+        logger.info(format("Generating CompositeId for GameId %s and EventPublisherRequest %s", gameId, request));
         final String hashedGameId = Hashing.murmur3_128().hashInt(gameId).toString();
-        return String.format("%s~%s", hashedGameId, gameId);
+        logger.info(format("Hashed GameId is %s for GameId %s and EventPublisherRequest %s", hashedGameId, gameId, request));
+        final String compositeGameId = String.format("%s~%s", hashedGameId, gameId);
+        logger.info(format("CompositeGameId is %s for GameId %s and EventPublisherRequest %s", compositeGameId, gameId, request));
+        return compositeGameId;
     }
 
     public NhlPlayByPlayProcessingItem updateNhlPlayByPlayProcessingItem(final NhlPlayByPlayProcessingItem itemToUpdate,
