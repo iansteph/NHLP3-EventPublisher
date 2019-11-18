@@ -8,6 +8,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.time.format.DateTimeParseException;
+import java.util.Optional;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
@@ -24,7 +25,7 @@ public class NhlPlayByPlayProxyTest extends UnitTestBase {
     @Before
     public void setupMocks() {
         when(mockNhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(anyInt(), anyString()))
-                .thenReturn(new NhlLiveGameFeedResponse());
+                .thenReturn(Optional.of(new NhlLiveGameFeedResponse()));
     }
 
     @Test
@@ -32,7 +33,7 @@ public class NhlPlayByPlayProxyTest extends UnitTestBase {
         final EventPublisherRequest eventPublisherRequest = new EventPublisherRequest();
         eventPublisherRequest.setGameId(999);
 
-        final NhlLiveGameFeedResponse response = proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("20191021_073000",
+        final Optional<NhlLiveGameFeedResponse> response = proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("20191021_073000",
                 eventPublisherRequest);
 
         assertThat(response, is(notNullValue()));

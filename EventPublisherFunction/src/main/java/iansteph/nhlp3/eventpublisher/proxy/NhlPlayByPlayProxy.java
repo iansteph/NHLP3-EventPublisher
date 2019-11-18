@@ -9,6 +9,7 @@ import org.apache.logging.log4j.Logger;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -23,8 +24,10 @@ public class NhlPlayByPlayProxy {
         this.nhlPlayByPlayClient = nhlPlayByPlayClient;
     }
 
-    public NhlLiveGameFeedResponse getPlayByPlayEventsSinceLastProcessedTimestamp(final String lastProcessedTimestamp,
-            final EventPublisherRequest eventPublisherRequest) {
+    public Optional<NhlLiveGameFeedResponse> getPlayByPlayEventsSinceLastProcessedTimestamp(
+            final String lastProcessedTimestamp,
+            final EventPublisherRequest eventPublisherRequest
+    ) {
         try {
             validateArguments(lastProcessedTimestamp, eventPublisherRequest);
             return nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(eventPublisherRequest.getGameId(),
