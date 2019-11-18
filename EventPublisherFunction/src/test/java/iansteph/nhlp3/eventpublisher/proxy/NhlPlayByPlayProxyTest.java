@@ -21,45 +21,45 @@ public class NhlPlayByPlayProxyTest extends UnitTestBase {
     private NhlPlayByPlayClient mockNhlPlayByPlayClient = mock(NhlPlayByPlayClient.class);
     private NhlPlayByPlayProxy proxy = new NhlPlayByPlayProxy(mockNhlPlayByPlayClient);
 
-//    @Before
-//    public void setupMocks() {
-//        when(mockNhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(anyInt(), anyString()))
-//                .thenReturn(new NhlLiveGameFeedResponse());
-//    }
-//
-//    @Test
-//    public void testGetPlayByPlayEventsSinceLastProcessedTimestampIsSuccessful() {
-//        final EventPublisherRequest eventPublisherRequest = new EventPublisherRequest();
-//        eventPublisherRequest.setGameId(999);
-//
-//        final NhlLiveGameFeedResponse response = proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("20191021_073000",
-//                eventPublisherRequest);
-//
-//        assertThat(response, is(notNullValue()));
-//    }
-//
-//    @Test(expected = NullPointerException.class)
-//    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsNullPointerExceptionWhenEventPublisherRequestIsNull() {
-//        proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("20191021_073000", null);
-//    }
-//
-//    @Test(expected = NullPointerException.class)
-//    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsNullPointerExceptionWhenLastProcessedTimestampIsNull() {
-//        proxy.getPlayByPlayEventsSinceLastProcessedTimestamp(null, EventPublisherRequest);
-//    }
-//
-//    @Test(expected = IllegalArgumentException.class)
-//    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsIllegalArgumentExceptionWhenLastProcessedTimestampIsNotCorrectLength() {
-//        proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("badArgument", EventPublisherRequest);
-//    }
-//
-//    @Test(expected = DateTimeParseException.class)
-//    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsDateTimeParseExceptionWhenLastProcessedTimestampDateIsInvalid() {
-//        proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("20191332_073000", EventPublisherRequest);
-//    }
-//
-//    @Test(expected = DateTimeParseException.class)
-//    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsNullPointerExceptionWhenLastProcessedTimestampTimeIsInvalid() {
-//        proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("20191021_256060", EventPublisherRequest);
-//    }
+    @Before
+    public void setupMocks() {
+        when(mockNhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(anyInt(), anyString()))
+                .thenReturn(new NhlLiveGameFeedResponse());
+    }
+
+    @Test
+    public void testGetPlayByPlayEventsSinceLastProcessedTimestampIsSuccessful() {
+        final EventPublisherRequest eventPublisherRequest = new EventPublisherRequest();
+        eventPublisherRequest.setGameId(999);
+
+        final NhlLiveGameFeedResponse response = proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("20191021_073000",
+                eventPublisherRequest);
+
+        assertThat(response, is(notNullValue()));
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsNullPointerExceptionWhenEventPublisherRequestIsNull() {
+        proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("20191021_073000", null);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsNullPointerExceptionWhenLastProcessedTimestampIsNull() {
+        proxy.getPlayByPlayEventsSinceLastProcessedTimestamp(null, EventPublisherRequest);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsIllegalArgumentExceptionWhenLastProcessedTimestampIsNotCorrectLength() {
+        proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("badArgument", EventPublisherRequest);
+    }
+
+    @Test(expected = DateTimeParseException.class)
+    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsDateTimeParseExceptionWhenLastProcessedTimestampDateIsInvalid() {
+        proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("20191332_073000", EventPublisherRequest);
+    }
+
+    @Test(expected = DateTimeParseException.class)
+    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsNullPointerExceptionWhenLastProcessedTimestampTimeIsInvalid() {
+        proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("20191021_256060", EventPublisherRequest);
+    }
 }

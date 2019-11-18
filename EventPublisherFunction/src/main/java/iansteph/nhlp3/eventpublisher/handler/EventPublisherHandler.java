@@ -77,26 +77,26 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
         this.cloudWatchEventsClient = cloudWatchEventsClient;
     }
 
-    public String handleRequest(final EventPublisherRequest eventPublisherRequest, final Context context) {
+    public NhlPlayByPlayProcessingItem handleRequest(final EventPublisherRequest eventPublisherRequest, final Context context) {
         final NhlPlayByPlayProcessingItem nhlPlayByPlayProcessingItem =
                 dynamoDbProxy.getNhlPlayByPlayProcessingItem(eventPublisherRequest);
 
         final String lastProcessedTimestamp = nhlPlayByPlayProcessingItem.getLastProcessedTimeStamp();
-        return nhlPlayByPlayProxy.getPlayByPlayEventsSinceLastProcessedTimestamp(
+        final NhlLiveGameFeedResponse nhlLiveGameFeedResponse = nhlPlayByPlayProxy.getPlayByPlayEventsSinceLastProcessedTimestamp(
                 lastProcessedTimestamp, eventPublisherRequest);
 
-//        final List<PlayEvent> playEvents = splitPlayByPlayResponseIntoPlaysSinceLastTimestamp(nhlPlayByPlayProcessingItem,
-//                nhlLiveGameFeedResponse);
-//        logger.info(format("%s event(s) since last event processed. Events to process: %s", playEvents.size(), playEvents));
-//        final Teams teamsInPlay = nhlLiveGameFeedResponse.getGameData().getTeams();
-//        playEvents.forEach(p -> eventPublisherProxy.publish(p, teamsInPlay.getHome().getId(), teamsInPlay.getAway().getId()));
-//
-//        final NhlPlayByPlayProcessingItem updatedItem = dynamoDbProxy.updateNhlPlayByPlayProcessingItem(nhlPlayByPlayProcessingItem,
-//                nhlLiveGameFeedResponse);
-//
-//        deleteCloudWatchEventRulesForCompletedGame(nhlLiveGameFeedResponse);
-//
-//        return updatedItem;
+        final List<PlayEvent> playEvents = splitPlayByPlayResponseIntoPlaysSinceLastTimestamp(nhlPlayByPlayProcessingItem,
+                nhlLiveGameFeedResponse);
+        logger.info(format("%s event(s) since last event processed. Events to process: %s", playEvents.size(), playEvents));
+        final Teams teamsInPlay = nhlLiveGameFeedResponse.getGameData().getTeams();
+        playEvents.forEach(p -> eventPublisherProxy.publish(p, teamsInPlay.getHome().getId(), teamsInPlay.getAway().getId()));
+
+        final NhlPlayByPlayProcessingItem updatedItem = dynamoDbProxy.updateNhlPlayByPlayProcessingItem(nhlPlayByPlayProcessingItem,
+                nhlLiveGameFeedResponse);
+
+        deleteCloudWatchEventRulesForCompletedGame(nhlLiveGameFeedResponse);
+
+        return updatedItem;
     }
 
     private List<PlayEvent> splitPlayByPlayResponseIntoPlaysSinceLastTimestamp(final NhlPlayByPlayProcessingItem nhlPlayByPlayProcessingItem,

@@ -23,7 +23,7 @@ public class NhlPlayByPlayProxy {
         this.nhlPlayByPlayClient = nhlPlayByPlayClient;
     }
 
-    public String getPlayByPlayEventsSinceLastProcessedTimestamp(final String lastProcessedTimestamp,
+    public NhlLiveGameFeedResponse getPlayByPlayEventsSinceLastProcessedTimestamp(final String lastProcessedTimestamp,
             final EventPublisherRequest eventPublisherRequest) {
         try {
             validateArguments(lastProcessedTimestamp, eventPublisherRequest);

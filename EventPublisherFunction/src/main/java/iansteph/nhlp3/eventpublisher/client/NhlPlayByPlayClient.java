@@ -1,5 +1,6 @@
 package iansteph.nhlp3.eventpublisher.client;
 
+import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.web.client.RestTemplate;
@@ -18,7 +19,7 @@ public class NhlPlayByPlayClient {
         this.restTemplate = restTemplate;
     }
 
-    public String getPlayByPlayEventsSinceLastProcessedTimestamp(final int gameId, final String lastProcessedTimestamp) {
+    public NhlLiveGameFeedResponse getPlayByPlayEventsSinceLastProcessedTimestamp(final int gameId, final String lastProcessedTimestamp) {
         final UriComponents uriComponents = UriComponentsBuilder.newInstance()
                 .scheme("http")
                 .host("statsapi.web.nhl.com")
@@ -26,8 +27,8 @@ public class NhlPlayByPlayClient {
                 .queryParam("startTimecode", lastProcessedTimestamp)
                 .buildAndExpand(gameId);
         logger.info(format("Calling NHL Play-by-Play timestamp diff API with lastProcessedTimestamp: %s", lastProcessedTimestamp));
-        final String response = restTemplate.getForObject(uriComponents.toUri(), String.class);
-        logger.info(format("GameId %s | NHL Play-by-Play timestamp diff API response: %s", gameId, response));
+        final NhlLiveGameFeedResponse response = restTemplate.getForObject(uriComponents.toUri(), NhlLiveGameFeedResponse.class);
+        logger.info(format("NHL Play-by-Play timestamp diff API response: %s", response));
         return response;
     }
 }
