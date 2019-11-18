@@ -18,7 +18,7 @@ public class TeamSide {
     private List<Integer> onIce;
     private List<OnIcePlus> onIcePlus;
     private List<Integer> scratches;
-    private List<Integer> penaltyBox;
+    private List<Penalty> penaltyBox;
     private List<Coach> coaches;
 
     public Team getTeam() {
@@ -85,11 +85,11 @@ public class TeamSide {
         this.scratches = scratches;
     }
 
-    public List<Integer> getPenaltyBox() {
+    public List<Penalty> getPenaltyBox() {
         return penaltyBox;
     }
 
-    public void setPenaltyBox(final List<Integer> penaltyBox) {
+    public void setPenaltyBox(final List<Penalty> penaltyBox) {
         this.penaltyBox = penaltyBox;
     }
 
