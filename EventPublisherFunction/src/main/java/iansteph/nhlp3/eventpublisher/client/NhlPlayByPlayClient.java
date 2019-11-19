@@ -10,6 +10,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.io.IOException;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -45,25 +46,38 @@ public class NhlPlayByPlayClient {
                     .buildAndExpand(gameId);
             logger.info(format("Calling NHL Play-by-Play timestamp diff API with lastProcessedTimestamp: %s", lastProcessedTimestamp));
             final String response = restTemplate.getForObject(uriComponents.toUri(), String.class);
-            return deserializeResponse(checkNotNull(response));
+            return deserializeResponse(checkNotNull(response), gameId, lastProcessedTimestamp);
         } catch (RestClientException | IllegalArgumentException | NullPointerException e) {
-            logger.error(format("GameId %s | Encountered exception when calling NHL Play-by-Play API and/or deserializing the response " +
-                "at lastProcessedTimestamp %s", gameId, lastProcessedTimestamp), e);
-            throw e;
+            logger.error(format("GameId %s | Encountered exception when calling NHL Play-by-Play API at lastProcessedTimestamp %s", gameId,
+                    lastProcessedTimestamp), e);
+            return Optional.empty();
         }
     }
 
-    private Optional<NhlLiveGameFeedResponse> deserializeResponse(final String responseAsString) {
-
-        // If there are no news events since lastProcessedTimestamp "[ ]" is returned as response and cannot be deserialized into a
-        // NhlLiveGameFeedResponse object
-        if (responseAsString.replaceAll("\\s", "").equalsIgnoreCase("[]")) {
+    private Optional<NhlLiveGameFeedResponse> deserializeResponse(
+            final String responseAsString,
+            final int gameId,
+            final String lastProcessedTimestamp
+    ) {
+        // If there are no news events since lastProcessedTimestamp "[]" is returned as response and cannot be deserialized into a
+        // NhlLiveGameFeedResponse object. Start with a length check as a signal to fail fast instead of replacing whitespace on a 15k line
+        // string. The expectation is that if the length is under 10 the response is "[]".
+        if (responseAsString.length() <= 10 && responseAsString.replaceAll("\\s", "").equalsIgnoreCase("[]")) {
+            logger.info(format("GameId %s | No new events returned in the NHL Play-by-Play API response at lastProcessedTimestamp %s",
+                    gameId, lastProcessedTimestamp));
             return Optional.empty();
         }
         else {
-            final NhlLiveGameFeedResponse nhlLiveGameFeedResponse = objectMapper.convertValue(responseAsString,
-                    NhlLiveGameFeedResponse.class);
-            return Optional.of(nhlLiveGameFeedResponse);
+            try {
+                final NhlLiveGameFeedResponse nhlLiveGameFeedResponse = objectMapper.readValue(responseAsString,
+                        NhlLiveGameFeedResponse.class);
+                return Optional.of(nhlLiveGameFeedResponse);
+            }
+            catch (IOException e) {
+                logger.error(format("GameId %s | Encountered exception when deserializing the NHL Play-by-Play API response at " +
+                        "lastProcessedTimestamp %s", gameId, lastProcessedTimestamp), e);
+                return Optional.empty();
+            }
         }
     }
 }

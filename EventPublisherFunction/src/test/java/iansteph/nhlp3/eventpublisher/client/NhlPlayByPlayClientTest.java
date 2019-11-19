@@ -10,6 +10,7 @@ import org.springframework.http.converter.json.MappingJackson2HttpMessageConvert
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,9 +29,9 @@ public class NhlPlayByPlayClientTest extends UnitTestBase {
     private RestTemplate mockRestTemplate = mock(RestTemplate.class);
 
     @Before
-    public void setupMocks() {
+    public void setupMocks() throws IOException {
         final ObjectMapper mockObjectMapper = mock(ObjectMapper.class);
-        when(mockObjectMapper.convertValue(any(Object.class), any(Class.class))).thenReturn(NhlLiveGameFeedResponse);
+        when(mockObjectMapper.readValue(any(String.class), any(Class.class))).thenReturn(NhlLiveGameFeedResponse);
         when(mockObjectMapper.registerModule(any())).thenReturn(mockObjectMapper);
         final MappingJackson2HttpMessageConverter mockMappingJackson2HttpMessageConverter = mock(MappingJackson2HttpMessageConverter.class);
         when(mockMappingJackson2HttpMessageConverter.getObjectMapper()).thenReturn(mockObjectMapper);
@@ -75,7 +76,7 @@ public class NhlPlayByPlayClientTest extends UnitTestBase {
 
     @Test
     public void testGetPlayByPlayEventsSinceLastProcessedTimestampSuccessfullyRetrievesAndDeserializesEmptyArrayResponse() {
-        when(mockRestTemplate.getForObject(any(URI.class), any())).thenReturn("       \t\n\n \r\n [   \n\t   ] ");
+        when(mockRestTemplate.getForObject(any(URI.class), any())).thenReturn("  [   ]  ");
         final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(mockRestTemplate);
 
         final Optional<NhlLiveGameFeedResponse> response = nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(
@@ -85,16 +86,20 @@ public class NhlPlayByPlayClientTest extends UnitTestBase {
         assertThat(response, is(Optional.empty()));
     }
 
-    @Test(expected = RestClientException.class)
-    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsRestClientExceptionIfCallFails() {
+    @Test
+    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsRestClientExceptionIfCallFailsAndReturnsEmptyOptional() {
         when(mockRestTemplate.getForObject(any(URI.class), any())).thenThrow(new RestClientException("Testing"));
         final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(mockRestTemplate);
 
-        nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(NhlLiveGameFeedResponse.getGamePk(), "20191118_000941");
+        final Optional<NhlLiveGameFeedResponse> response = nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(
+                NhlLiveGameFeedResponse.getGamePk(), "20191118_000941");
+
+        assertThat(response, is(notNullValue()));
+        assertThat(response, is(Optional.empty()));
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsIllegalArgumentExceptionIfDeserializationFails() {
+    @Test
+    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsIllegalArgumentExceptionIfDeserializationFailsAndReturnsEmptyOptional() {
         final ObjectMapper mockObjectMapper = mock(ObjectMapper.class);
         when(mockObjectMapper.convertValue(any(Object.class), any(Class.class))).thenThrow(new IllegalArgumentException());
         when(mockObjectMapper.registerModule(any())).thenReturn(mockObjectMapper);
@@ -104,14 +109,22 @@ public class NhlPlayByPlayClientTest extends UnitTestBase {
         when(mockRestTemplate.getForObject(any(URI.class), any())).thenReturn("Test");
         final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(mockRestTemplate);
 
-        nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp( NhlLiveGameFeedResponse.getGamePk(), "20191118_000941");
+        final Optional<NhlLiveGameFeedResponse> response = nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(
+                NhlLiveGameFeedResponse.getGamePk(), "20191118_000941");
+
+        assertThat(response, is(notNullValue()));
+        assertThat(response, is(Optional.empty()));
     }
 
-    @Test(expected = NullPointerException.class)
-    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsNullPointerExceptionIfResponseIsNull() {
+    @Test
+    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsNullPointerExceptionIfResponseIsNullAndReturnsEmptyOptional() {
         when(mockRestTemplate.getForObject(any(URI.class), any())).thenReturn(null);
         final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(mockRestTemplate);
 
-        nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(NhlLiveGameFeedResponse.getGamePk(), "20191118_000941");
+        final Optional<NhlLiveGameFeedResponse> response = nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(
+                NhlLiveGameFeedResponse.getGamePk(), "20191118_000941");
+
+        assertThat(response, is(notNullValue()));
+        assertThat(response, is(Optional.empty()));
     }
 }
