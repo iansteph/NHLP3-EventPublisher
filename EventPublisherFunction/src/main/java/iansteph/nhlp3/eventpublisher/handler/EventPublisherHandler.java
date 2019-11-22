@@ -5,6 +5,8 @@ import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.sns.AmazonSNSClientBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -14,6 +16,7 @@ import iansteph.nhlp3.eventpublisher.model.event.PlayEvent;
 import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
 import iansteph.nhlp3.eventpublisher.model.nhl.gamedata.Teams;
 import iansteph.nhlp3.eventpublisher.model.nhl.livedata.plays.Play;
+import iansteph.nhlp3.eventpublisher.model.request.EventPublisherRequest;
 import iansteph.nhlp3.eventpublisher.proxy.DynamoDbProxy;
 import iansteph.nhlp3.eventpublisher.proxy.EventPublisherProxy;
 import iansteph.nhlp3.eventpublisher.proxy.NhlPlayByPlayProxy;
@@ -46,21 +49,30 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
     private static final Logger logger = LogManager.getLogger(EventPublisherHandler.class);
 
     public EventPublisherHandler() {
+
+        // DynamoDB
         final AmazonDynamoDB amazonDynamoDB = AmazonDynamoDBClientBuilder.standard().build();
         final DynamoDBMapper dynamoDbMapper = new DynamoDBMapper(amazonDynamoDB);
         this.dynamoDbProxy = new DynamoDbProxy(dynamoDbMapper);
 
-        final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(createRestTemplateAndRegisterCustomObjectMapper());
-        this.nhlPlayByPlayProxy = new NhlPlayByPlayProxy(nhlPlayByPlayClient);
+        // S3
+        final AmazonS3 amazonS3Client = AmazonS3ClientBuilder.defaultClient();
 
+        // NHL Play-By-Play
+        final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(createRestTemplateAndRegisterCustomObjectMapper());
+        this.nhlPlayByPlayProxy = new NhlPlayByPlayProxy(nhlPlayByPlayClient, amazonS3Client);
+
+        // SNS
         this.eventPublisherProxy = new EventPublisherProxy(AmazonSNSClientBuilder.defaultClient(), new ObjectMapper());
 
+        // CloudWatch
         this.cloudWatchEventsClient = CloudWatchEventsClient.builder()
                 .httpClientBuilder(ApacheHttpClient.builder())
                 .build();
     }
 
     private RestTemplate createRestTemplateAndRegisterCustomObjectMapper() {
+
         final RestTemplate restTemplate = new RestTemplate();
         final MappingJackson2HttpMessageConverter messageConverter = restTemplate.getMessageConverters().stream()
                 .filter(MappingJackson2HttpMessageConverter.class::isInstance)
@@ -70,8 +82,13 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
         return restTemplate;
     }
 
-    public EventPublisherHandler(final DynamoDbProxy dynamoDbProxy, final NhlPlayByPlayProxy nhlPlayByPlayProxy,
-            final EventPublisherProxy eventPublisherProxy, final CloudWatchEventsClient cloudWatchEventsClient) {
+    public EventPublisherHandler(
+            final DynamoDbProxy dynamoDbProxy,
+            final NhlPlayByPlayProxy nhlPlayByPlayProxy,
+            final EventPublisherProxy eventPublisherProxy,
+            final CloudWatchEventsClient cloudWatchEventsClient
+    ) {
+
         this.dynamoDbProxy = dynamoDbProxy;
         this.nhlPlayByPlayProxy = nhlPlayByPlayProxy;
         this.eventPublisherProxy = eventPublisherProxy;
@@ -79,34 +96,46 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
     }
 
     public NhlPlayByPlayProcessingItem handleRequest(final EventPublisherRequest eventPublisherRequest, final Context context) {
+
         final NhlPlayByPlayProcessingItem nhlPlayByPlayProcessingItem =
                 dynamoDbProxy.getNhlPlayByPlayProcessingItem(eventPublisherRequest);
-
         final String lastProcessedTimestamp = nhlPlayByPlayProcessingItem.getLastProcessedTimeStamp();
         final Optional<NhlLiveGameFeedResponse> nhlLiveGameFeedResponse = nhlPlayByPlayProxy.getPlayByPlayEventsSinceLastProcessedTimestamp(
                 lastProcessedTimestamp, eventPublisherRequest);
-
         if (nhlLiveGameFeedResponse.isPresent()) {
+
             final NhlLiveGameFeedResponse response = nhlLiveGameFeedResponse.get();
             final List<PlayEvent> playEvents = splitPlayByPlayResponseIntoPlaysSinceLastTimestamp(nhlPlayByPlayProcessingItem, response);
             logger.info(format("%s event(s) since last event processed", playEvents.size()));
             final Teams teamsInPlay = response.getGameData().getTeams();
             playEvents.forEach(p -> eventPublisherProxy.publish(p, teamsInPlay.getHome().getId(), teamsInPlay.getAway().getId()));
-
             final NhlPlayByPlayProcessingItem updatedItem = dynamoDbProxy.updateNhlPlayByPlayProcessingItem(nhlPlayByPlayProcessingItem,
                     response);
 
-            deleteCloudWatchEventRulesForCompletedGame(response);
+            // If game is over delete the CloudWatch Event Rule that triggers the events for the game
+            if (isGameCompleted(nhlLiveGameFeedResponse.get())) {
 
+                deleteCloudWatchEventRulesForCompletedGame(response);
+            }
             return updatedItem;
         }
         else {
+
             return nhlPlayByPlayProcessingItem;
         }
     }
 
-    private List<PlayEvent> splitPlayByPlayResponseIntoPlaysSinceLastTimestamp(final NhlPlayByPlayProcessingItem nhlPlayByPlayProcessingItem,
-            final NhlLiveGameFeedResponse nhlLiveGameFeedResponse) {
+    private boolean isGameCompleted(final NhlLiveGameFeedResponse nhlLiveGameFeedResponse) {
+
+        return nhlLiveGameFeedResponse.getGameData().getStatus().getAbstractGameState().toLowerCase()
+                .equals("final");
+    }
+
+    private List<PlayEvent> splitPlayByPlayResponseIntoPlaysSinceLastTimestamp(
+            final NhlPlayByPlayProcessingItem nhlPlayByPlayProcessingItem,
+            final NhlLiveGameFeedResponse nhlLiveGameFeedResponse
+    ) {
+
         final int lastProcessedEventIndex = nhlPlayByPlayProcessingItem.getLastProcessedEventIndex();
 
         // Add 1 because lastEventIndex was already processed (unless index is 0 then nothing has been processed yet)
@@ -120,6 +149,7 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
             return Collections.emptyList();
         }
         else {
+
             final List<Play> playsToPublish = nhlLiveGameFeedResponse.getLiveData().getPlays().getAllPlays().subList(startPlayIndex,
                     endPlayIndex);
             return playsToPublish.stream()
@@ -129,13 +159,14 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
     }
 
     private void deleteCloudWatchEventRulesForCompletedGame(final NhlLiveGameFeedResponse nhlLiveGameFeedResponse) {
+
         final boolean isGameCompleted = nhlLiveGameFeedResponse.getGameData().getStatus().getAbstractGameState().toLowerCase()
                 .equals("final");
         if (isGameCompleted) {
+
             final int gamePk = nhlLiveGameFeedResponse.getGamePk();
             final String eventRuleName = String.format("GameId-%s", gamePk);
             final String eventBusName = "default";
-
             logger.info(format("Attempting to delete CloudWatch Event Rule %s , because the corresponding game has ended",
                     eventRuleName));
 

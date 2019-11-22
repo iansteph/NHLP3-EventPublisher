@@ -1,4 +1,4 @@
-package iansteph.nhlp3.eventpublisher.handler;
+package iansteph.nhlp3.eventpublisher.model.request;
 
 public class EventPublisherRequest {
 

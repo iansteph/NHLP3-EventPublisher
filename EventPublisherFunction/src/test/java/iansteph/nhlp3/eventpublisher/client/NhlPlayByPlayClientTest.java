@@ -26,10 +26,11 @@ import static org.mockito.Mockito.when;
 
 public class NhlPlayByPlayClientTest extends UnitTestBase {
 
-    private RestTemplate mockRestTemplate = mock(RestTemplate.class);
+    private final RestTemplate mockRestTemplate = mock(RestTemplate.class);
 
     @Before
     public void setupMocks() throws IOException {
+
         final ObjectMapper mockObjectMapper = mock(ObjectMapper.class);
         when(mockObjectMapper.readValue(any(String.class), any(Class.class))).thenReturn(NhlLiveGameFeedResponse);
         when(mockObjectMapper.registerModule(any())).thenReturn(mockObjectMapper);
@@ -40,6 +41,7 @@ public class NhlPlayByPlayClientTest extends UnitTestBase {
 
     @Test
     public void testConstructorSuccessfullyCreatesInstance() {
+
         final RestTemplate restTemplate = new RestTemplate();
         final MappingJackson2HttpMessageConverter messageConverter = restTemplate.getMessageConverters().stream()
                 .filter(MappingJackson2HttpMessageConverter.class::isInstance)
@@ -54,6 +56,7 @@ public class NhlPlayByPlayClientTest extends UnitTestBase {
 
     @Test(expected = RuntimeException.class)
     public void testConstructorThrowsRuntimeExceptionIfMappingJackson2HttpMessageConverterCannotBeFoundInOrderToRetrieveObjectMapper() {
+
         final RestTemplate restTemplate = new RestTemplate();
         restTemplate.setMessageConverters(new ArrayList<>());
 
@@ -61,70 +64,76 @@ public class NhlPlayByPlayClientTest extends UnitTestBase {
     }
 
     @Test
-    public void testGetPlayByPlayEventsSinceLastProcessedTimestampSuccessfullyRetrievesAndDeserializesFullResponse() {
+    public void testGetPlayByPlayEventsSinceLastProcessedTimestampSuccessfullyRetrievesNhlPlayByPlayResponse() {
+
         final NhlLiveGameFeedResponse nhlLiveGameFeedResponse = NhlLiveGameFeedResponse;
         when(mockRestTemplate.getForObject(any(URI.class), any())).thenReturn(nhlLiveGameFeedResponse.toString());
         final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(mockRestTemplate);
 
-        final Optional<NhlLiveGameFeedResponse> response = nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(
+        final String responseString = nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(
                 nhlLiveGameFeedResponse.getGamePk(), "20191118_000941");
 
-        assertThat(response, is(notNullValue()));
-        assertThat(response, is(not(Optional.empty())));
-        assertThat(response.get(), is(notNullValue()));
+        assertThat(responseString, is(notNullValue()));
     }
 
-    @Test
-    public void testGetPlayByPlayEventsSinceLastProcessedTimestampSuccessfullyRetrievesAndDeserializesEmptyArrayResponse() {
-        when(mockRestTemplate.getForObject(any(URI.class), any())).thenReturn("  [   ]  ");
-        final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(mockRestTemplate);
+    @Test(expected = RestClientException.class)
+    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsRestClientExceptionIfCallFails() {
 
-        final Optional<NhlLiveGameFeedResponse> response = nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(
-                NhlLiveGameFeedResponse.getGamePk(), "20191118_000941");
-
-        assertThat(response, is(notNullValue()));
-        assertThat(response, is(Optional.empty()));
-    }
-
-    @Test
-    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsRestClientExceptionIfCallFailsAndReturnsEmptyOptional() {
         when(mockRestTemplate.getForObject(any(URI.class), any())).thenThrow(new RestClientException("Testing"));
         final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(mockRestTemplate);
 
-        final Optional<NhlLiveGameFeedResponse> response = nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(
-                NhlLiveGameFeedResponse.getGamePk(), "20191118_000941");
-
-        assertThat(response, is(notNullValue()));
-        assertThat(response, is(Optional.empty()));
+        nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(GameId, "20191118_000941");
     }
 
     @Test
-    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsIllegalArgumentExceptionIfDeserializationFailsAndReturnsEmptyOptional() {
-        final ObjectMapper mockObjectMapper = mock(ObjectMapper.class);
-        when(mockObjectMapper.convertValue(any(Object.class), any(Class.class))).thenThrow(new IllegalArgumentException());
-        when(mockObjectMapper.registerModule(any())).thenReturn(mockObjectMapper);
-        final MappingJackson2HttpMessageConverter mockMappingJackson2HttpMessageConverter = mock(MappingJackson2HttpMessageConverter.class);
-        when(mockMappingJackson2HttpMessageConverter.getObjectMapper()).thenReturn(mockObjectMapper);
-        when(mockRestTemplate.getMessageConverters()).thenReturn(Collections.singletonList(mockMappingJackson2HttpMessageConverter));
-        when(mockRestTemplate.getForObject(any(URI.class), any())).thenReturn("Test");
-        final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(mockRestTemplate);
+    public void testDeserializeResponseSuccessfullyDeserializesFullResponse() throws IOException {
 
-        final Optional<NhlLiveGameFeedResponse> response = nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(
-                NhlLiveGameFeedResponse.getGamePk(), "20191118_000941");
+        final String mockResponse = getTestPlayByPlayResponseResourceAsString();
+        final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(createRestTemplateForDeserializationUnitTest());
+
+        final Optional<NhlLiveGameFeedResponse> response = nhlPlayByPlayClient.deserializeResponse(mockResponse, GameId, "20191118_000941");
 
         assertThat(response, is(notNullValue()));
-        assertThat(response, is(Optional.empty()));
+        assertThat(response, is(not(Optional.empty())));
+        assertThat(response.get().getGamePk(), is(GameId));
     }
 
     @Test
-    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsNullPointerExceptionIfResponseIsNullAndReturnsEmptyOptional() {
-        when(mockRestTemplate.getForObject(any(URI.class), any())).thenReturn(null);
-        final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(mockRestTemplate);
+    public void testDeserializeResponseSuccessfullyDeserializesEmptyArrayResponse() {
 
-        final Optional<NhlLiveGameFeedResponse> response = nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(
-                NhlLiveGameFeedResponse.getGamePk(), "20191118_000941");
+        final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(createRestTemplateForDeserializationUnitTest());
+
+        final Optional<NhlLiveGameFeedResponse> response = nhlPlayByPlayClient.deserializeResponse("  [   ]  ", GameId, "20191118_000941");
 
         assertThat(response, is(notNullValue()));
         assertThat(response, is(Optional.empty()));
+
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testDeserializeResponseThrowsNullPointerExceptionIfDeserializationStringIsNull() {
+
+        final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(createRestTemplateForDeserializationUnitTest());
+
+        nhlPlayByPlayClient.deserializeResponse(null, GameId, "20191118_000941");
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void testDeserializeResponseThrowsRuntimeExceptionWrappedIOExceptionIfDeserializationFails() {
+
+        final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(createRestTemplateForDeserializationUnitTest());
+
+        nhlPlayByPlayClient.deserializeResponse("This will fail deserialization", GameId, "20191118_000941");
+    }
+
+    private RestTemplate createRestTemplateForDeserializationUnitTest() {
+
+        final RestTemplate restTemplate = new RestTemplate();
+        final MappingJackson2HttpMessageConverter messageConverter = restTemplate.getMessageConverters().stream()
+                .filter(MappingJackson2HttpMessageConverter.class::isInstance)
+                .map(MappingJackson2HttpMessageConverter.class::cast)
+                .findFirst().orElseThrow( () -> new RuntimeException("MappingJackson2HttpMessageConverter not found"));
+        messageConverter.getObjectMapper().registerModule(new JavaTimeModule());
+        return restTemplate;
     }
 }

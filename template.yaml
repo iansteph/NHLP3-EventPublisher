@@ -78,6 +78,11 @@ Resources:
                   - events:RemoveTargets
                   - events:DeleteRule
                 Resource: '*'
+              -
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource: 'arn:aws:s3:::nhlp3-event-publisher-play-by-play-requests-archive'
 
   NHLP3EventsSnsTopic:
     Type: AWS::SNS::Topic

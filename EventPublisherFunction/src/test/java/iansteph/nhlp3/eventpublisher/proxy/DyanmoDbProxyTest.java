@@ -30,6 +30,7 @@ public class DyanmoDbProxyTest extends UnitTestBase {
 
     @Test
     public void testGetNhlPlayByPlayProcessingItemIsSuccessful() {
+
         final int gameId = EventPublisherRequest.getGameId();
         final NhlPlayByPlayProcessingItem nhlPlayByPlayProcessingItem = new NhlPlayByPlayProcessingItem();
         final String expectedCompositeGameId = String.format("%s~%s", Hashing.murmur3_128().hashInt(gameId), gameId);
@@ -43,11 +44,13 @@ public class DyanmoDbProxyTest extends UnitTestBase {
 
     @Test(expected = NullPointerException.class)
     public void testGetNhlPlayByPlayProcessingItemThrowsNullPointerExceptionWhenRequestIsNull() {
+
         proxy.getNhlPlayByPlayProcessingItem(null);
     }
 
     @Test
     public void testUpdateNhlPlayByPlayProcessingItemIsSuccessful() {
+
         final NhlPlayByPlayProcessingItem nhlPlayByPlayProcessingItem = new NhlPlayByPlayProcessingItem();
         final String compositeGameId = "compositeGameId";
         nhlPlayByPlayProcessingItem.setCompositeGameId(compositeGameId);
@@ -92,11 +95,13 @@ public class DyanmoDbProxyTest extends UnitTestBase {
 
     @Test(expected = NullPointerException.class)
     public void testUpdateNhlPlayByPlayProcessingItemThrowsNullPointerExceptionWhenItemToUpdateIsNull() {
+
         proxy.updateNhlPlayByPlayProcessingItem(null, new NhlLiveGameFeedResponse());
     }
 
     @Test(expected = NullPointerException.class)
     public void testUpdateNhlPlayByPlayProcessingItemThrowsNullPointerExceptionWhenNhlLiveGameFeedResponseInputIsNull() {
+
         proxy.updateNhlPlayByPlayProcessingItem(new NhlPlayByPlayProcessingItem(), null);
     }
 }

@@ -1,6 +1,7 @@
 package iansteph.nhlp3.eventpublisher;
 
-import iansteph.nhlp3.eventpublisher.handler.EventPublisherRequest;
+import com.google.common.io.Files;
+import iansteph.nhlp3.eventpublisher.model.request.EventPublisherRequest;
 import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
 import iansteph.nhlp3.eventpublisher.model.nhl.gamedata.GameData;
 import iansteph.nhlp3.eventpublisher.model.nhl.gamedata.Status;
@@ -11,16 +12,40 @@ import iansteph.nhlp3.eventpublisher.model.nhl.livedata.Plays;
 import iansteph.nhlp3.eventpublisher.model.nhl.livedata.plays.Play;
 import iansteph.nhlp3.eventpublisher.model.nhl.livedata.plays.play.About;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
 public class UnitTestBase {
 
-    protected final EventPublisherRequest EventPublisherRequest = new EventPublisherRequest(999);
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // OBJECTS                                                                                                                            //
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    protected final int GameId = 2019020054;
+
+    protected final EventPublisherRequest EventPublisherRequest = new EventPublisherRequest(GameId);
 
     protected final NhlLiveGameFeedResponse NhlLiveGameFeedResponse = createNhlLiveGameFeedResponse();
 
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // METHODS                                                                                                                            //
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    public String getTestPlayByPlayResponseResourceAsString() throws IOException {
+
+        return getTestResourceAsString("src/test/resources/play-by-play-response.json");
+    }
+
+    public String getTestResourceAsString(final String filename) throws IOException {
+
+        return Files.asCharSource(new File(filename), StandardCharsets.UTF_8).read();
+    }
+
     private NhlLiveGameFeedResponse createNhlLiveGameFeedResponse() {
+
         final NhlLiveGameFeedResponse liveGameFeedResponse = new NhlLiveGameFeedResponse();
         final Teams teams = new Teams();
         final Team homeTeam = new Team();
@@ -48,6 +73,7 @@ public class UnitTestBase {
         final LiveData liveData = new LiveData();
         liveData.setPlays(plays);
         liveGameFeedResponse.setLiveData(liveData);
+        liveGameFeedResponse.setGamePk(GameId);
         return liveGameFeedResponse;
     }
 }
