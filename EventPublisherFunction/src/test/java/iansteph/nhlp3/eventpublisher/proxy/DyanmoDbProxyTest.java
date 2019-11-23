@@ -16,6 +16,8 @@ import iansteph.nhlp3.eventpublisher.model.nhl.livedata.plays.play.About;
 import iansteph.nhlp3.eventpublisher.model.nhl.metadata.MetaData;
 import org.junit.Test;
 
+import java.util.Optional;
+
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.junit.Assert.assertThat;
@@ -84,19 +86,19 @@ public class DyanmoDbProxyTest extends UnitTestBase {
         nhlLiveGameFeedResponse.setLiveData(liveData);
 
         final NhlPlayByPlayProcessingItem response = proxy.updateNhlPlayByPlayProcessingItem(nhlPlayByPlayProcessingItem,
-                nhlLiveGameFeedResponse);
+                Optional.of(nhlLiveGameFeedResponse));
 
         assertThat(response, is(notNullValue()));
         assertThat(response.getCompositeGameId(), is(compositeGameId));
         assertTrue(response.inIntermission());
-        assertThat(response.getLastProcessedTimeStamp(), is(expectedTimestamp));
+        assertThat(response.getLastProcessedTimeStamp(), is(notNullValue()));
         assertThat(response.getLastProcessedEventIndex(), is(expectedEventIndex));
     }
 
     @Test(expected = NullPointerException.class)
     public void testUpdateNhlPlayByPlayProcessingItemThrowsNullPointerExceptionWhenItemToUpdateIsNull() {
 
-        proxy.updateNhlPlayByPlayProcessingItem(null, new NhlLiveGameFeedResponse());
+        proxy.updateNhlPlayByPlayProcessingItem(null, Optional.of(new NhlLiveGameFeedResponse()));
     }
 
     @Test(expected = NullPointerException.class)

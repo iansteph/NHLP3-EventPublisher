@@ -105,24 +105,19 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
         if (nhlLiveGameFeedResponse.isPresent()) {
 
             final NhlLiveGameFeedResponse response = nhlLiveGameFeedResponse.get();
-            final List<PlayEvent> playEvents = splitPlayByPlayResponseIntoPlaysSinceLastTimestamp(nhlPlayByPlayProcessingItem, response);
+            final List<PlayEvent> playEvents = splitPlayByPlayResponseIntoPlaysSinceLastTimestamp(nhlPlayByPlayProcessingItem,
+                    response);
             logger.info(format("%s event(s) since last event processed", playEvents.size()));
             final Teams teamsInPlay = response.getGameData().getTeams();
             playEvents.forEach(p -> eventPublisherProxy.publish(p, teamsInPlay.getHome().getId(), teamsInPlay.getAway().getId()));
-            final NhlPlayByPlayProcessingItem updatedItem = dynamoDbProxy.updateNhlPlayByPlayProcessingItem(nhlPlayByPlayProcessingItem,
-                    response);
 
             // If game is over delete the CloudWatch Event Rule that triggers the events for the game
             if (isGameCompleted(nhlLiveGameFeedResponse.get())) {
 
                 deleteCloudWatchEventRulesForCompletedGame(response);
             }
-            return updatedItem;
         }
-        else {
-
-            return nhlPlayByPlayProcessingItem;
-        }
+        return dynamoDbProxy.updateNhlPlayByPlayProcessingItem(nhlPlayByPlayProcessingItem, nhlLiveGameFeedResponse);
     }
 
     private boolean isGameCompleted(final NhlLiveGameFeedResponse nhlLiveGameFeedResponse) {

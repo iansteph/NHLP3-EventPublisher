@@ -8,6 +8,12 @@ import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.util.Optional;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
@@ -55,7 +61,7 @@ public class DynamoDbProxy {
 
     public NhlPlayByPlayProcessingItem updateNhlPlayByPlayProcessingItem(
             final NhlPlayByPlayProcessingItem itemToUpdate,
-            final NhlLiveGameFeedResponse nhlLiveGameFeedResponse
+            final Optional<NhlLiveGameFeedResponse> nhlLiveGameFeedResponse
     ) {
 
         try {
@@ -64,9 +70,13 @@ public class DynamoDbProxy {
                     "DynamoDbProxy::updateNhlPlayByPlayProcessingItem");
             checkNotNull(nhlLiveGameFeedResponse, "NhlLiveGameFeedResponse must be non-null when passed as parameter when " +
                     "calling DynamoDbProxy::updateNhlPlayByPlayProcessingItem");
-            itemToUpdate.setLastProcessedTimeStamp(nhlLiveGameFeedResponse.getMetaData().getTimeStamp());
-            itemToUpdate.setLastProcessedEventIndex(nhlLiveGameFeedResponse.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx());
-            itemToUpdate.setInIntermission(nhlLiveGameFeedResponse.getLiveData().getLinescore().getIntermissionInfo().isInIntermission());
+            if (nhlLiveGameFeedResponse.isPresent()) {
+
+                final NhlLiveGameFeedResponse response = nhlLiveGameFeedResponse.get();
+                itemToUpdate.setLastProcessedEventIndex(response.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx());
+                itemToUpdate.setInIntermission(response.getLiveData().getLinescore().getIntermissionInfo().isInIntermission());
+            }
+            itemToUpdate.setLastProcessedTimeStamp(createNewLastProcessedTimestamp());
             dynamoDBMapper.save(itemToUpdate);
             logger.info(format("Saved updated NhlPlayByPlayProcessingItem to DyanmoDB: %s", itemToUpdate));
             return itemToUpdate;
@@ -76,5 +86,13 @@ public class DynamoDbProxy {
             logger.error(e);
             throw e;
         }
+    }
+
+    private String createNewLastProcessedTimestamp() {
+        final LocalDateTime nowDateTime = LocalDateTime.now(ZoneId.of("UTC"));
+        final LocalDate nowDate = nowDateTime.toLocalDate();
+        final LocalTime nowTime = nowDateTime.toLocalTime();
+        return format("%s%s%s_%s%s%s", nowDate.getYear(), nowDate.getMonthValue(), nowDate.getDayOfMonth(), nowTime.getHour(),
+                nowTime.getMinute(), nowTime.getSecond());
     }
 }
