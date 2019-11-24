@@ -92,7 +92,7 @@ public class DynamoDbProxy {
         final LocalDateTime nowDateTime = LocalDateTime.now(ZoneId.of("UTC"));
         final LocalDate nowDate = nowDateTime.toLocalDate();
         final LocalTime nowTime = nowDateTime.toLocalTime();
-        return format("%s%s%s_%s%s%s", nowDate.getYear(), nowDate.getMonthValue(), nowDate.getDayOfMonth(), nowTime.getHour(),
+        return format("%d%02d%02d_%02d%02d%02d", nowDate.getYear(), nowDate.getMonthValue(), nowDate.getDayOfMonth(), nowTime.getHour(),
                 nowTime.getMinute(), nowTime.getSecond());
     }
 }
