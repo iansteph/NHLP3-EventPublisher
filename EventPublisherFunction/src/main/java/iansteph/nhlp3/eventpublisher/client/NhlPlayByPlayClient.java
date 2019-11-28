@@ -60,7 +60,7 @@ public class NhlPlayByPlayClient {
         try {
 
             checkNotNull(responseAsString);
-            if (responseAsString.length() <= 10 && responseAsString.replaceAll("\\s", "").equalsIgnoreCase("[]")) {
+            if (isEmptyResponse(responseAsString) || isDiffResponse(responseAsString)) {
 
                 logger.info(format("GameId %s | No new events returned in the NHL Play-by-Play API response at lastProcessedTimestamp %s",
                         gameId, lastProcessedTimestamp));
@@ -83,6 +83,17 @@ public class NhlPlayByPlayClient {
             logDeserializationError(gameId, lastProcessedTimestamp, e);
             throw new RuntimeException(e.getMessage(), e);
         }
+    }
+
+    private boolean isEmptyResponse(final String response) {
+        return response.equalsIgnoreCase("[]");
+    }
+
+    // "Diff" events are events that have occurred in the past which need to be corrected. Those events should be handled in a different
+    // manner, because the events published to the NHLP3-Play-by-Play-Events-Prod SNS topic are in order as they occurred in the game.
+    // The events will need to be published in a different SNS topic.
+    private boolean isDiffResponse(final String response) {
+        return response.startsWith("[{\"diff\"");
     }
 
     private void logDeserializationError(final int gameId, final String lastProcessedTimestamp, final Throwable throwable) {

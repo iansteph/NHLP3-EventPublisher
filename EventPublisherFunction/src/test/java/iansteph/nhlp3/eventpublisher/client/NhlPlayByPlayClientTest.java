@@ -103,7 +103,19 @@ public class NhlPlayByPlayClientTest extends UnitTestBase {
 
         final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(createRestTemplateForDeserializationUnitTest());
 
-        final Optional<NhlLiveGameFeedResponse> response = nhlPlayByPlayClient.deserializeResponse("  [   ]  ", GameId, "20191118_000941");
+        final Optional<NhlLiveGameFeedResponse> response = nhlPlayByPlayClient.deserializeResponse("[]", GameId, "20191118_000941");
+
+        assertThat(response, is(notNullValue()));
+        assertThat(response, is(Optional.empty()));
+
+    }
+
+    @Test
+    public void testDeserializeResponseSuccessfullyDeserializesDiffResponse() {
+
+        final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(createRestTemplateForDeserializationUnitTest());
+
+        final Optional<NhlLiveGameFeedResponse> response = nhlPlayByPlayClient.deserializeResponse("[{\"diff\":[{\"op\":\"replace\",\"path\":\"/metaData/timeStamp\",\"value\":\"20191128_033716\"}]}]", GameId, "20191118_000941");
 
         assertThat(response, is(notNullValue()));
         assertThat(response, is(Optional.empty()));
