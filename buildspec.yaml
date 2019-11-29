@@ -5,6 +5,7 @@ phases:
     commands:
       # Upgrade AWS CLI to the latest version
       - pip install --upgrade awscli
+      - cp ./settings.xml /root/.m2/settings.xml
     runtime-versions:
       java: openjdk8
   pre_build:
