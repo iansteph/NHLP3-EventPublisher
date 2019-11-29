@@ -9,7 +9,7 @@ phases:
     commands:
       # Upgrade AWS CLI to the latest version
       - pip install --upgrade awscli
-      - echo "<servers><server><id>github</id><username>iansteph</username><password>$GITHUB_PERSONAL_ACCESS_TOKEN</password></server></servers>" >> ./settings.xml
+      - echo "<servers><server><id>github</id><username>iansteph</username><password>$GITHUB_PERSONAL_ACCESS_TOKEN</password></server></servers>" >> ./settings.xml # See here: https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html
       - echo "</settings>" >> ./settings.xml # Append closing XML tag to settings.xml Maven file to format file correctly
       - cp ./settings.xml /root/.m2/settings.xml
     runtime-versions:

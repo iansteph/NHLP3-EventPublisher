@@ -25,3 +25,7 @@
       </repositories>
     </profile>
   </profiles>
+  
+  <!-- No closing tag is added, because there needs to be more added to this file when packaging the file in order to
+  resolve all dependencies from GitHub Packages. See more here:
+  https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html -->
