@@ -7,7 +7,6 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.sns.AmazonSNSClientBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import iansteph.nhlp3.eventpublisher.client.NhlPlayByPlayClient;
@@ -28,6 +27,8 @@ import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.services.cloudwatchevents.CloudWatchEventsClient;
 import software.amazon.awssdk.services.cloudwatchevents.model.DeleteRuleRequest;
 import software.amazon.awssdk.services.cloudwatchevents.model.RemoveTargetsRequest;
+import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.sns.SnsClientBuilder;
 
 import java.util.Collections;
 import java.util.List;
@@ -63,7 +64,8 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
         this.nhlPlayByPlayProxy = new NhlPlayByPlayProxy(nhlPlayByPlayClient, amazonS3Client);
 
         // SNS
-        this.eventPublisherProxy = new EventPublisherProxy(AmazonSNSClientBuilder.defaultClient(), new ObjectMapper());
+        final SnsClient snsClient = SnsClient.create();
+        this.eventPublisherProxy = new EventPublisherProxy(snsClient, new ObjectMapper());
 
         // CloudWatch
         this.cloudWatchEventsClient = CloudWatchEventsClient.builder()

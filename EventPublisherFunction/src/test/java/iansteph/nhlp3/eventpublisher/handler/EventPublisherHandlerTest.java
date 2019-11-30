@@ -7,7 +7,6 @@ import static org.junit.Assert.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import com.amazonaws.services.sns.model.PublishResult;
 import iansteph.nhlp3.eventpublisher.UnitTestBase;
 import iansteph.nhlp3.eventpublisher.model.dynamo.NhlPlayByPlayProcessingItem;
 import iansteph.nhlp3.eventpublisher.model.event.PlayEvent;
@@ -19,6 +18,7 @@ import iansteph.nhlp3.eventpublisher.proxy.NhlPlayByPlayProxy;
 import org.junit.Before;
 import org.junit.Test;
 import software.amazon.awssdk.services.cloudwatchevents.CloudWatchEventsClient;
+import software.amazon.awssdk.services.sns.model.PublishResponse;
 
 import java.util.Optional;
 
@@ -47,7 +47,7 @@ public class EventPublisherHandlerTest extends UnitTestBase {
                 .thenReturn(Optional.of(NhlLiveGameFeedResponse));
 
         // Mock EventPublisherProxy
-        when(mockEventPublisherProxy.publish(any(PlayEvent.class), anyInt(), anyInt())).thenReturn(new PublishResult());
+        when(mockEventPublisherProxy.publish(any(PlayEvent.class), anyInt(), anyInt())).thenReturn(PublishResponse.builder().build());
     }
 
     @Test

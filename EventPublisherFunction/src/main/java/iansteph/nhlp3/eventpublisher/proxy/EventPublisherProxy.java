@@ -1,33 +1,36 @@
 package iansteph.nhlp3.eventpublisher.proxy;
 
-import com.amazonaws.services.sns.AmazonSNS;
-import com.amazonaws.services.sns.model.MessageAttributeValue;
-import com.amazonaws.services.sns.model.PublishRequest;
-import com.amazonaws.services.sns.model.PublishResult;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import iansteph.nhlp3.eventpublisher.model.event.PlayEvent;
+import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.sns.model.MessageAttributeValue;
+import software.amazon.awssdk.services.sns.model.PublishRequest;
+import software.amazon.awssdk.services.sns.model.PublishResponse;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class EventPublisherProxy {
 
-    private final AmazonSNS amazonSnsClient;
+    private final SnsClient snsClient;
     private final ObjectMapper objectMapper;
     private final String nhlPlayByPlayEventsTopicArn = "arn:aws:sns:us-east-1:627812672245:NHLP3-Play-by-Play-Events-Prod";
 
-    public EventPublisherProxy(final AmazonSNS amazonSnsClient, final ObjectMapper objectMapper) {
+    public EventPublisherProxy(final SnsClient snsClient, final ObjectMapper objectMapper) {
 
-        this.amazonSnsClient = amazonSnsClient;
+        this.snsClient = snsClient;
         this.objectMapper = objectMapper;
     }
 
-    public PublishResult publish(final PlayEvent playEventToPublish, final int homeTeamId, final int awayTeamId) {
+    public PublishResponse publish(final PlayEvent playEventToPublish, final int homeTeamId, final int awayTeamId) {
 
-        final PublishRequest request = new PublishRequest(nhlPlayByPlayEventsTopicArn, convertPlayEventToString(playEventToPublish))
-                .withMessageAttributes(retrieveMessageAttributes(playEventToPublish, homeTeamId, awayTeamId));
-        return amazonSnsClient.publish(request);
+        final PublishRequest request = PublishRequest.builder()
+                .topicArn(nhlPlayByPlayEventsTopicArn)
+                .message(convertPlayEventToString(playEventToPublish))
+                .messageAttributes(retrieveMessageAttributes(playEventToPublish, homeTeamId, awayTeamId))
+                .build();
+        return snsClient.publish(request);
     }
 
     private String convertPlayEventToString(final PlayEvent playEvent) {
@@ -51,15 +54,20 @@ public class EventPublisherProxy {
 
         final String numberDataType = "Number";
         final Map<String, MessageAttributeValue> messageAttributeValueMap = new HashMap<>();
-        messageAttributeValueMap.put("eventTypeId", new MessageAttributeValue()
-                .withDataType("String")
-                .withStringValue(playEvent.getPlay().getResult().getEventTypeId()));
-        messageAttributeValueMap.put("homeTeamId", new MessageAttributeValue()
-                .withDataType(numberDataType)
-                .withStringValue(String.valueOf(homeTeamId)));
-        messageAttributeValueMap.put("awayTeamId", new MessageAttributeValue()
-                .withDataType(numberDataType)
-                .withStringValue(String.valueOf(awayTeamId)));
+        messageAttributeValueMap.put("eventTypeId",
+                MessageAttributeValue.builder()
+                        .dataType("String")
+                        .stringValue(playEvent.getPlay().getResult().getEventTypeId()).build());
+        messageAttributeValueMap.put("homeTeamId",
+                MessageAttributeValue.builder()
+                        .dataType(numberDataType)
+                        .stringValue(String.valueOf(homeTeamId))
+                        .build());
+        messageAttributeValueMap.put("awayTeamId",
+                MessageAttributeValue.builder()
+                        .dataType(numberDataType)
+                        .stringValue(String.valueOf(awayTeamId))
+                        .build());
         return messageAttributeValueMap;
     }
 }
