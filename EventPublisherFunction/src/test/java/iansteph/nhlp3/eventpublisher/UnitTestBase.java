@@ -44,7 +44,7 @@ public class UnitTestBase {
         return Files.asCharSource(new File(filename), StandardCharsets.UTF_8).read();
     }
 
-    private NhlLiveGameFeedResponse createNhlLiveGameFeedResponse() {
+    public NhlLiveGameFeedResponse createNhlLiveGameFeedResponse() {
 
         final NhlLiveGameFeedResponse liveGameFeedResponse = new NhlLiveGameFeedResponse();
         final Teams teams = new Teams();

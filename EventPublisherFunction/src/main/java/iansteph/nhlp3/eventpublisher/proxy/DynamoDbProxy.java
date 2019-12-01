@@ -1,17 +1,22 @@
 package iansteph.nhlp3.eventpublisher.proxy;
 
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.google.common.hash.Hashing;
 import iansteph.nhlp3.eventpublisher.model.request.EventPublisherRequest;
-import iansteph.nhlp3.eventpublisher.model.dynamo.NhlPlayByPlayProcessingItem;
 import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -19,29 +24,77 @@ import static java.lang.String.format;
 
 public class DynamoDbProxy {
 
-    private final DynamoDBMapper dynamoDBMapper;
+    private final DynamoDbClient dynamoDbClient;
+    private final String nhlPlayByPlayProcessingDynamoDbTableName;
 
     private static final Logger logger = LogManager.getLogger(DynamoDbProxy.class);
 
-    public DynamoDbProxy(final DynamoDBMapper dynamoDbMapper) {
+    public DynamoDbProxy(
+            final DynamoDbClient dynamoDbClient,
+            final String nhlPlayByPlayProcessingDynamoDbTableName) {
 
-        this.dynamoDBMapper = dynamoDbMapper;
+        this.dynamoDbClient = dynamoDbClient;
+        this.nhlPlayByPlayProcessingDynamoDbTableName = nhlPlayByPlayProcessingDynamoDbTableName;
     }
 
-    public NhlPlayByPlayProcessingItem getNhlPlayByPlayProcessingItem(final EventPublisherRequest request) {
+    public Map<String, AttributeValue> getNhlPlayByPlayProcessingItem(final EventPublisherRequest request) {
 
         try {
 
-            checkNotNull(request, "EventPublisherRequest must not be null passed as parameter when calling " +
-                    "DynamoDbProxy::getNhlPlayByPlayProcessingItem");
-            final NhlPlayByPlayProcessingItem item = new NhlPlayByPlayProcessingItem();
+            checkNotNull(request, format("GameId %s | EventPublisherRequest must not be null passed as parameter when calling " +
+                    "DynamoDbProxy::getNhlPlayByPlayProcessingItem", request.getGameId()));
             final String compositeGameId = generateCompositeGameId(request);
-            item.setCompositeGameId(compositeGameId);
-            logger.info(format("Retrieving NhlPlayByPlayProcessingItem for primary key: %s", compositeGameId));
-            final NhlPlayByPlayProcessingItem retrievedItem = dynamoDBMapper.load(item);
-            checkNotNull(retrievedItem, format("Retrieved item was null for EventPublisherRequest: %s", request));
-            logger.info(format("Retrieved NhlPlayByPlayProcessingItem: %s", retrievedItem));
+            logger.info(format("Retrieving item for primary key %s from %s", compositeGameId,
+                    nhlPlayByPlayProcessingDynamoDbTableName));
+            Map<String, AttributeValue> primaryKey = new HashMap<>();
+            primaryKey.put("compositeGameId", AttributeValue.builder().s(compositeGameId).build());
+            final GetItemRequest getItemRequest = GetItemRequest.builder()
+                    .tableName(nhlPlayByPlayProcessingDynamoDbTableName)
+                    .key(primaryKey)
+                    .build();
+            final Map<String, AttributeValue> retrievedItem = dynamoDbClient.getItem(getItemRequest).item();
+            checkNotNull(retrievedItem, format("GameId %s | Retrieved item was null for EventPublisherRequest: %s", request.getGameId(),
+                    request));
+            logger.info(format("Retrieved item %s from %s", retrievedItem, nhlPlayByPlayProcessingDynamoDbTableName));
             return retrievedItem;
+        }
+        catch (NullPointerException e) {
+
+            logger.error(e);
+            throw e;
+        }
+    }
+
+    public Map<String, AttributeValue> updateNhlPlayByPlayProcessingItem(
+            final Map<String, AttributeValue> item,
+            final Optional<NhlLiveGameFeedResponse> nhlLiveGameFeedResponse
+    ) {
+
+        try {
+
+            checkNotNull(item, "Item must be non-null when passed as parameter when calling " +
+                    "DynamoDbProxy::updateNhlPlayByPlayProcessingItem");
+            checkNotNull(nhlLiveGameFeedResponse, "NhlLiveGameFeedResponse must be non-null when passed as parameter when " +
+                    "calling DynamoDbProxy::updateNhlPlayByPlayProcessingItem");
+            final Map<String, AttributeValue> itemToUpdate = new HashMap<>(item);
+            if (nhlLiveGameFeedResponse.isPresent()) {
+
+                final NhlLiveGameFeedResponse response = nhlLiveGameFeedResponse.get();
+                itemToUpdate.put("lastProcessedEventIndex", AttributeValue.builder()
+                        .n(String.valueOf(response.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx()))
+                        .build());
+                itemToUpdate.put("inIntermission", AttributeValue.builder()
+                        .bool(response.getLiveData().getLinescore().getIntermissionInfo().isInIntermission())
+                        .build());
+            }
+            itemToUpdate.put("lastProcessedTimeStamp", AttributeValue.builder().s(createNewLastProcessedTimestamp()).build());
+            final PutItemResponse response = dynamoDbClient.putItem(PutItemRequest.builder()
+                    .tableName(nhlPlayByPlayProcessingDynamoDbTableName)
+                    .item(itemToUpdate)
+                    .build());
+            final Map<String, AttributeValue> responseAttributes = response.attributes();
+            logger.info(format("Saved updated item to DynamoDB. Response: %s", responseAttributes));
+            return responseAttributes;
         }
         catch (NullPointerException e) {
 
@@ -57,35 +110,6 @@ public class DynamoDbProxy {
         final String compositeGameId = String.format("%s~%s", hashedGameId, gameId);
         logger.info(format("CompositeGameId is %s for GameId %s and EventPublisherRequest %s", compositeGameId, gameId, request));
         return compositeGameId;
-    }
-
-    public NhlPlayByPlayProcessingItem updateNhlPlayByPlayProcessingItem(
-            final NhlPlayByPlayProcessingItem itemToUpdate,
-            final Optional<NhlLiveGameFeedResponse> nhlLiveGameFeedResponse
-    ) {
-
-        try {
-
-            checkNotNull(itemToUpdate, "Item must be non-null when passed as parameter when calling " +
-                    "DynamoDbProxy::updateNhlPlayByPlayProcessingItem");
-            checkNotNull(nhlLiveGameFeedResponse, "NhlLiveGameFeedResponse must be non-null when passed as parameter when " +
-                    "calling DynamoDbProxy::updateNhlPlayByPlayProcessingItem");
-            if (nhlLiveGameFeedResponse.isPresent()) {
-
-                final NhlLiveGameFeedResponse response = nhlLiveGameFeedResponse.get();
-                itemToUpdate.setLastProcessedEventIndex(response.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx());
-                itemToUpdate.setInIntermission(response.getLiveData().getLinescore().getIntermissionInfo().isInIntermission());
-            }
-            itemToUpdate.setLastProcessedTimeStamp(createNewLastProcessedTimestamp());
-            dynamoDBMapper.save(itemToUpdate);
-            logger.info(format("Saved updated NhlPlayByPlayProcessingItem to DyanmoDB: %s", itemToUpdate));
-            return itemToUpdate;
-        }
-        catch (NullPointerException e) {
-
-            logger.error(e);
-            throw e;
-        }
     }
 
     private String createNewLastProcessedTimestamp() {
