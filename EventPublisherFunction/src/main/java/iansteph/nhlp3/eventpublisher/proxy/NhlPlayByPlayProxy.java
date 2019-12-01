@@ -76,7 +76,7 @@ public class NhlPlayByPlayProxy {
         checkNotNull(lastProcessedTimestamp, format("GameId %s | lastProcessedTimestamp must be non-null when calling" +
                 "NhlPlayByPlayProxy::getPlayByPlayEventsSinceLastProcessedTimestamp at lastProcessedTimestamp %s", gameId,
                 lastProcessedTimestamp));
-        checkArgument(lastProcessedTimestamp.length() == 15, format("GameId %s | LastProcessedTimestamp must match" +
+        checkArgument(lastProcessedTimestamp.length() == 15, format("GameId %s | LastProcessedTimestamp must match " +
                 "pattern for the NHL Play-by-Play API at lastProcessedTimestamp %s", gameId, lastProcessedTimestamp));
         final String date = lastProcessedTimestamp.substring(0, 8);
         LocalDate.parse(date, DateTimeFormatter.BASIC_ISO_DATE);
