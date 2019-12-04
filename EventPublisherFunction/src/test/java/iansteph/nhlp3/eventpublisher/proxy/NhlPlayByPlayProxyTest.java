@@ -25,7 +25,7 @@ public class NhlPlayByPlayProxyTest extends UnitTestBase {
 
     private final NhlPlayByPlayClient mockNhlPlayByPlayClient = mock(NhlPlayByPlayClient.class);
     private final AmazonS3 mockS3Client = mock(AmazonS3.class);
-    private final NhlPlayByPlayProxy proxy = new NhlPlayByPlayProxy(mockNhlPlayByPlayClient, mockS3Client);
+    private final NhlPlayByPlayProxy proxy = new NhlPlayByPlayProxy(mockNhlPlayByPlayClient, mockS3Client, "someBucketName");
 
     @Before
     public void setupMocks() throws IOException {

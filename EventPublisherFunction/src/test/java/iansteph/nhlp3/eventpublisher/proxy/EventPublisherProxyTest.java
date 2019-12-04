@@ -18,7 +18,7 @@ public class EventPublisherProxyTest extends UnitTestBase {
 
     private final SnsClient mockAmazonSnsClient = mock(SnsClient.class);
     private final SafeObjectMapper mockObjectMapper = mock(SafeObjectMapper.class);
-    private final EventPublisherProxy eventPublisherProxy = new EventPublisherProxy(mockAmazonSnsClient, mockObjectMapper);
+    private final EventPublisherProxy eventPublisherProxy = new EventPublisherProxy(mockAmazonSnsClient, mockObjectMapper, "someTopicArn");
 
     @Test
     public void testPublishIsSuccessful() {

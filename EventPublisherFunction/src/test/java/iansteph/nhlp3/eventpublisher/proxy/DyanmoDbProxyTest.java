@@ -28,7 +28,7 @@ import static org.mockito.Mockito.*;
 public class DyanmoDbProxyTest extends UnitTestBase {
 
     private DynamoDBMapper mockDynamoDBMapper = mock(DynamoDBMapper.class);
-    private DynamoDbProxy proxy = new DynamoDbProxy(mockDynamoDBMapper);
+    private DynamoDbProxy proxy = new DynamoDbProxy(mockDynamoDBMapper, "someTableName");
 
     @Test
     public void testGetNhlPlayByPlayProcessingItemIsSuccessful() {

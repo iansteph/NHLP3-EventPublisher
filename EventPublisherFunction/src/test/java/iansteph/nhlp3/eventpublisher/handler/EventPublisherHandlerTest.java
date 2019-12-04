@@ -16,7 +16,9 @@ import iansteph.nhlp3.eventpublisher.proxy.DynamoDbProxy;
 import iansteph.nhlp3.eventpublisher.proxy.EventPublisherProxy;
 import iansteph.nhlp3.eventpublisher.proxy.NhlPlayByPlayProxy;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.contrib.java.lang.system.EnvironmentVariables;
 import software.amazon.awssdk.services.cloudwatchevents.CloudWatchEventsClient;
 import software.amazon.awssdk.services.sns.model.PublishResponse;
 
@@ -48,6 +50,19 @@ public class EventPublisherHandlerTest extends UnitTestBase {
 
         // Mock EventPublisherProxy
         when(mockEventPublisherProxy.publish(any(PlayEvent.class), anyInt(), anyInt())).thenReturn(PublishResponse.builder().build());
+    }
+
+    @Rule
+    public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
+
+    @Test
+    public void testConstructorSuccessfullyInitializesEventPublisherHandler() {
+
+        environmentVariables.set("Stage", "personal");
+
+        final EventPublisherHandler eventPublisherHandler = new EventPublisherHandler();
+
+        assertThat(eventPublisherHandler, is(notNullValue()));
     }
 
     @Test

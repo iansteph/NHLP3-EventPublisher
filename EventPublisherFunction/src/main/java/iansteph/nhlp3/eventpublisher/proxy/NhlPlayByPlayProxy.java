@@ -22,15 +22,19 @@ public class NhlPlayByPlayProxy {
 
     private final NhlPlayByPlayClient nhlPlayByPlayClient;
     private final AmazonS3 amazonS3Client;
+    private final String nhlPlayByPlayResponseArchiveS3BucketName;
 
     private static final Logger logger = LogManager.getLogger(NhlPlayByPlayProxy.class);
-    private static final String NHL_PLAY_BY_PLAY_RESPONSE_ARCHIVE_BUCKET_NAME = "nhlp3-event-publisher-play-by-play-requests-archive";
 
-
-    public NhlPlayByPlayProxy(final NhlPlayByPlayClient nhlPlayByPlayClient, final AmazonS3 amazonS3Client) {
+    public NhlPlayByPlayProxy(
+            final NhlPlayByPlayClient nhlPlayByPlayClient,
+            final AmazonS3 amazonS3Client,
+            final String nhlPlayByPlayResponseArchiveS3BucketName
+    ) {
 
         this.nhlPlayByPlayClient = nhlPlayByPlayClient;
         this.amazonS3Client = amazonS3Client;
+        this.nhlPlayByPlayResponseArchiveS3BucketName = nhlPlayByPlayResponseArchiveS3BucketName;
     }
 
     public Optional<NhlLiveGameFeedResponse> getPlayByPlayEventsSinceLastProcessedTimestamp(
@@ -86,7 +90,7 @@ public class NhlPlayByPlayProxy {
         final String s3ObjectKey = createS3ObjectKey(String.valueOf(gameId), lastProcessedTimestamp);
         try {
 
-            amazonS3Client.putObject(NHL_PLAY_BY_PLAY_RESPONSE_ARCHIVE_BUCKET_NAME, s3ObjectKey, response);
+            amazonS3Client.putObject(nhlPlayByPlayResponseArchiveS3BucketName, s3ObjectKey, response);
             logger.info(format("GameId %s | Archived NHL Play-by-Play API response at lastProcessedTimestamp %s to S3", gameId,
                     lastProcessedTimestamp));
         } catch (AmazonServiceException e) {

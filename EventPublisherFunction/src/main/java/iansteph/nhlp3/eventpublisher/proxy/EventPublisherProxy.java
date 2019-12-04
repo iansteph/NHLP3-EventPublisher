@@ -15,12 +15,17 @@ public class EventPublisherProxy {
 
     private final SnsClient snsClient;
     private final ObjectMapper objectMapper;
-    private final String nhlPlayByPlayEventsTopicArn = "arn:aws:sns:us-east-1:627812672245:NHLP3-Play-by-Play-Events-Prod";
+    private final String nhlPlayByPlayEventsTopicArn;
 
-    public EventPublisherProxy(final SnsClient snsClient, final ObjectMapper objectMapper) {
+    public EventPublisherProxy(
+            final SnsClient snsClient,
+            final ObjectMapper objectMapper,
+            final String nhlPlayByPlayEventsTopicArn
+    ) {
 
         this.snsClient = snsClient;
         this.objectMapper = objectMapper;
+        this.nhlPlayByPlayEventsTopicArn = nhlPlayByPlayEventsTopicArn;
     }
 
     public PublishResponse publish(final PlayEvent playEventToPublish, final int homeTeamId, final int awayTeamId) {
