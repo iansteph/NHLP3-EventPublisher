@@ -20,17 +20,12 @@ import static java.lang.String.format;
 public class DynamoDbProxy {
 
     private final DynamoDBMapper dynamoDBMapper;
-    private final String nhlPlayByPlayProcessingDynamoDbTableName;
 
     private static final Logger logger = LogManager.getLogger(DynamoDbProxy.class);
 
-    public DynamoDbProxy(
-            final DynamoDBMapper dynamoDbMapper,
-            final String nhlPlayByPlayProcessingDynamoDbTableName
-    ) {
+    public DynamoDbProxy(final DynamoDBMapper dynamoDbMapper) {
 
         this.dynamoDBMapper = dynamoDbMapper;
-        this.nhlPlayByPlayProcessingDynamoDbTableName = nhlPlayByPlayProcessingDynamoDbTableName;
     }
 
     public NhlPlayByPlayProcessingItem getNhlPlayByPlayProcessingItem(final EventPublisherRequest request) {

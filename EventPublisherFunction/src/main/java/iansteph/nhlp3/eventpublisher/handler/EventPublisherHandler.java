@@ -3,6 +3,7 @@ package iansteph.nhlp3.eventpublisher.handler;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapperConfig;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.s3.AmazonS3;
@@ -58,8 +59,13 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
 
         // DynamoDB
         final AmazonDynamoDB amazonDynamoDB = AmazonDynamoDBClientBuilder.standard().build();
-        final DynamoDBMapper dynamoDbMapper = new DynamoDBMapper(amazonDynamoDB);
-        this.dynamoDbProxy = new DynamoDbProxy(dynamoDbMapper, appConfig.get("nhlPlayByPlayProcessingDynamoDbTableName").asText());
+        final String dynamoDBTableName = appConfig.get("nhlPlayByPlayProcessingDynamoDbTableName").asText();
+        final DynamoDBMapperConfig dynamoDBMapperConfig = new DynamoDBMapperConfig.Builder()
+                .withTableNameOverride(new DynamoDBMapperConfig.TableNameOverride(dynamoDBTableName))
+                .build();
+
+        final DynamoDBMapper dynamoDbMapper = new DynamoDBMapper(amazonDynamoDB, dynamoDBMapperConfig);
+        this.dynamoDbProxy = new DynamoDbProxy(dynamoDbMapper);
 
         // S3
         final AmazonS3 amazonS3Client = AmazonS3ClientBuilder.defaultClient();

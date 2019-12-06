@@ -2,7 +2,6 @@ package iansteph.nhlp3.eventpublisher.model.dynamo;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBHashKey;
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTyped;
 
 import java.util.Objects;
@@ -10,7 +9,6 @@ import java.util.Objects;
 import static com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapperFieldModel.DynamoDBAttributeType;
 import static java.lang.String.format;
 
-@DynamoDBTable(tableName="NhlPlayByPlayProcessingAggregate")
 public class NhlPlayByPlayProcessingItem {
 
     private String compositeGameId;
