@@ -3,10 +3,13 @@ package iansteph.nhlp3.eventpublisher.handler;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapperConfig;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import iansteph.nhlp3.eventpublisher.client.NhlPlayByPlayClient;
@@ -28,8 +31,9 @@ import software.amazon.awssdk.services.cloudwatchevents.CloudWatchEventsClient;
 import software.amazon.awssdk.services.cloudwatchevents.model.DeleteRuleRequest;
 import software.amazon.awssdk.services.cloudwatchevents.model.RemoveTargetsRequest;
 import software.amazon.awssdk.services.sns.SnsClient;
-import software.amazon.awssdk.services.sns.SnsClientBuilder;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -47,13 +51,20 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
     private final EventPublisherProxy eventPublisherProxy;
     private final NhlPlayByPlayProxy nhlPlayByPlayProxy;
 
+    private static final String APP_CONFIG_FILE_NAME = "application-configuration.json";
     private static final Logger logger = LogManager.getLogger(EventPublisherHandler.class);
 
     public EventPublisherHandler() {
+        final JsonNode appConfig = initializeAppConfig();
 
         // DynamoDB
         final AmazonDynamoDB amazonDynamoDB = AmazonDynamoDBClientBuilder.standard().build();
-        final DynamoDBMapper dynamoDbMapper = new DynamoDBMapper(amazonDynamoDB);
+        final String dynamoDBTableName = appConfig.get("nhlPlayByPlayProcessingDynamoDbTableName").asText();
+        final DynamoDBMapperConfig dynamoDBMapperConfig = new DynamoDBMapperConfig.Builder()
+                .withTableNameOverride(new DynamoDBMapperConfig.TableNameOverride(dynamoDBTableName))
+                .build();
+
+        final DynamoDBMapper dynamoDbMapper = new DynamoDBMapper(amazonDynamoDB, dynamoDBMapperConfig);
         this.dynamoDbProxy = new DynamoDbProxy(dynamoDbMapper);
 
         // S3
@@ -61,27 +72,18 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
 
         // NHL Play-By-Play
         final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(createRestTemplateAndRegisterCustomObjectMapper());
-        this.nhlPlayByPlayProxy = new NhlPlayByPlayProxy(nhlPlayByPlayClient, amazonS3Client);
+        this.nhlPlayByPlayProxy = new NhlPlayByPlayProxy(nhlPlayByPlayClient, amazonS3Client,
+                appConfig.get("nhlPlayByPlayResponseArchiveS3BucketName").asText());
 
         // SNS
         final SnsClient snsClient = SnsClient.create();
-        this.eventPublisherProxy = new EventPublisherProxy(snsClient, new ObjectMapper());
+        this.eventPublisherProxy = new EventPublisherProxy(snsClient, new ObjectMapper(),
+                appConfig.get("nhlPlayByPlayEventsTopicArn").asText());
 
         // CloudWatch
         this.cloudWatchEventsClient = CloudWatchEventsClient.builder()
                 .httpClientBuilder(ApacheHttpClient.builder())
                 .build();
-    }
-
-    private RestTemplate createRestTemplateAndRegisterCustomObjectMapper() {
-
-        final RestTemplate restTemplate = new RestTemplate();
-        final MappingJackson2HttpMessageConverter messageConverter = restTemplate.getMessageConverters().stream()
-                .filter(MappingJackson2HttpMessageConverter.class::isInstance)
-                .map(MappingJackson2HttpMessageConverter.class::cast)
-                .findFirst().orElseThrow( () -> new RuntimeException("MappingJackson2HttpMessageConverter not found"));
-        messageConverter.getObjectMapper().registerModule(new JavaTimeModule());
-        return restTemplate;
     }
 
     public EventPublisherHandler(
@@ -120,6 +122,41 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
             }
         }
         return dynamoDbProxy.updateNhlPlayByPlayProcessingItem(nhlPlayByPlayProcessingItem, nhlLiveGameFeedResponse);
+    }
+
+    private JsonNode initializeAppConfig() {
+
+        final String stage = System.getenv("Stage");
+        final ObjectMapper objectMapper = new ObjectMapper();
+        try {
+
+            final String appConfigFilePath = this.getClass().getClassLoader().getResource(APP_CONFIG_FILE_NAME).getFile();
+            final File appConfigFile = new File(appConfigFilePath);
+            final JsonNode appConfig = objectMapper.readTree(appConfigFile);
+            logger.info(format("Initialized app config for stage: %s", stage));
+            return appConfig.get(stage);
+        }
+        catch (JsonProcessingException e) {
+
+            logger.error(format("Encountered exception parsing JSON in app config file. Exception: %s", e.getMessage()), e);
+            throw new RuntimeException(e);
+        }
+        catch (IOException e) {
+
+            logger.error(format("Encountered exception reading app config file. Exception: %s", e.getMessage()), e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    private RestTemplate createRestTemplateAndRegisterCustomObjectMapper() {
+
+        final RestTemplate restTemplate = new RestTemplate();
+        final MappingJackson2HttpMessageConverter messageConverter = restTemplate.getMessageConverters().stream()
+                .filter(MappingJackson2HttpMessageConverter.class::isInstance)
+                .map(MappingJackson2HttpMessageConverter.class::cast)
+                .findFirst().orElseThrow( () -> new RuntimeException("MappingJackson2HttpMessageConverter not found"));
+        messageConverter.getObjectMapper().registerModule(new JavaTimeModule());
+        return restTemplate;
     }
 
     private boolean isGameCompleted(final NhlLiveGameFeedResponse nhlLiveGameFeedResponse) {

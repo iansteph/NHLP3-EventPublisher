@@ -2,10 +2,27 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: SAM template for EventPublisher
 
+Parameters:
+  Stage:
+    Type: String
+    Default: prod
+    AllowedValues:
+      - prod
+      - personal
+    Description: Enter prod or personal stage for this CloudFormation Stack. Default is prod.
+
+Conditions:
+  IsProdDomain:
+    Fn::Equals:
+      - Ref: Stage
+      - prod
+
 Resources:
   EventPublisherFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
+      FunctionName:
+        Fn::Sub: NHLP3-EventPublisher-${Stage}
       CodeUri: EventPublisherFunction
       Handler: iansteph.nhlp3.eventpublisher.handler.EventPublisherHandler::handleRequest
       Runtime: java8
@@ -18,34 +35,37 @@ Resources:
           - EventPublisherExecutionRole
           - Arn
       Policies:
-        -
-          Sid: TrustCloudWatchEventRulesToInvokeLambdaFunction # See here: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/resource-based-policies-cwe.html
+        - Sid: TrustCloudWatchEventRulesToInvokeLambdaFunction # See here: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/resource-based-policies-cwe.html
           Effect: Allow
           Action:
             - lambda:InvokeFunction
-          Resource: 'arn:aws:lambda:us-east-1:627812672245:function:NHLP3-EventPublisher-Prod-EventPublisherFunction-1SBK7I88SVTNP'
+          Resource:
+            Fn::Sub: arn:aws:lambda:us-east-1:627812672245:function:NHLP3-EventPublisher-${stage}
           Principal:
             Service: events.amazonaws.com
           Condition:
             ArnLike:
               AWS:SourceArn: 'arn:aws:events:us-east-1:627812672245:rule/GameId-*'
+      Environment:
+        Variables:
+          Stage:
+            Ref: Stage
 
   EventPublisherExecutionRole:
     Type: AWS::IAM::Role
     Properties:
       Description: IAM Role assumed when invoking the Event Publisher lambda function
-      RoleName: NHLP3-Event-Publisher-Execution-Role-Prod
+      RoleName:
+        Fn::Sub: NHLP3-Event-Publisher-Execution-Role-${Stage}
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
-          -
-            Effect: Allow
+          - Effect: Allow
             Principal:
               Service: lambda.amazonaws.com
             Action:
               - sts:AssumeRole
-          -
-            Effect: Allow
+          - Effect: Allow
             Principal:
               Service: events.amazonaws.com
             Action:
@@ -54,40 +74,42 @@ Resources:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         - arn:aws:iam::aws:policy/AWSXrayFullAccess
       Policies:
-        -
-          PolicyName: EventPublishingPolicy
+        - PolicyName: EventPublishingPolicy
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              -
-                Effect: Allow
+              - Effect: Allow
                 Action:
                   - sns:Publish
                 Resource:
                   Ref: NHLP3EventsSnsTopic
-              -
-                Effect: Allow
+              - Effect: Allow
                 Action:
                   - dynamodb:GetItem
                   - dynamodb:PutItem
                   - dynamodb:UpdateItem
-                Resource: 'arn:aws:dynamodb:us-east-1:627812672245:table/NhlPlayByPlayProcessingAggregate'
-              -
-                Effect: Allow
+                Resource:
+                  Fn::GetAtt:
+                    - NhlPlayByPlayProcessingAggregateTable
+                    - Arn
+              - Effect: Allow
                 Action:
                   - events:RemoveTargets
                   - events:DeleteRule
                 Resource: '*'
-              -
-                Effect: Allow
+              - Effect: Allow
                 Action:
                   - s3:PutObject
-                Resource: 'arn:aws:s3:::nhlp3-event-publisher-play-by-play-requests-archive'
+                Resource:
+                  Fn::GetAtt:
+                    - NHLP3EventPublisherPlayByPlayAPIRequestArchiveBucket
+                    - Arn
 
   NHLP3EventsSnsTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: NHLP3-Play-by-Play-Events-Prod
+      TopicName:
+        Fn::Sub: NHLP3-Play-by-Play-Events-${Stage}
 
   NHLP3EventsSnsTopicPolicy:
     Type: AWS::SNS::TopicPolicy
@@ -97,8 +119,7 @@ Resources:
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
-          -
-            Sid: AllowAllAwsAccountSubscriptions
+          - Sid: AllowAllAwsAccountSubscriptions
             Effect: Allow
             Principal:
               AWS: '*'
@@ -106,8 +127,7 @@ Resources:
               - sns:Subscribe
             Resource:
               Ref: NHLP3EventsSnsTopic
-          -
-            Sid: OnlyEventPublisherExecutionRoleCanPublishMessagesToSnsTopic
+          - Sid: OnlyEventPublisherExecutionRoleCanPublishMessagesToSnsTopic
             Effect: Allow
             Principal:
               AWS:
@@ -118,3 +138,73 @@ Resources:
               - sns:Publish
             Resource:
               Ref: NHLP3EventsSnsTopic
+
+  NHLP3EventPublisherPlayByPlayAPIRequestArchiveBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: nhlp3-event-publisher-play-by-play-requests-archive-${Stage}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+
+  NHLP3EventPublisherPlayByPlayAPIRequestArchiveBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: NHLP3EventPublisherPlayByPlayAPIRequestArchiveBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Id: AllowEventPublisherToArchiveNHLPlayByPlayRequests
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                Fn::GetAtt:
+                  - EventPublisherExecutionRole
+                  - Arn
+            Action: 's3:*'
+            Resource:
+              - Fn::GetAtt:
+                - NHLP3EventPublisherPlayByPlayAPIRequestArchiveBucket
+                - Arn
+              - Fn::Join:
+                - ''
+                - - Fn::GetAtt:
+                    - NHLP3EventPublisherPlayByPlayAPIRequestArchiveBucket
+                    - Arn
+                  - '/*'
+          - Effect: Allow
+            Principal:
+              AWS: 'arn:aws:iam::627812672245:user/ian'
+            Action: '*'
+            Resource:
+              - Fn::GetAtt:
+                - NHLP3EventPublisherPlayByPlayAPIRequestArchiveBucket
+                - Arn
+              - Fn::Join:
+                - ''
+                - - Fn::GetAtt:
+                    - NHLP3EventPublisherPlayByPlayAPIRequestArchiveBucket
+                    - Arn
+                  - '/*'
+
+  NhlPlayByPlayProcessingAggregateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName:
+        Fn::Sub: ${Stage}-NhlPlayByPlayProcessingAggregate
+      AttributeDefinitions:
+        - AttributeName: compositeGameId
+          AttributeType: S
+      BillingMode: PROVISIONED
+      KeySchema:
+        - AttributeName: compositeGameId
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5

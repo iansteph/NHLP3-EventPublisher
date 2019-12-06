@@ -2,14 +2,13 @@ package iansteph.nhlp3.eventpublisher.model.dynamo;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBHashKey;
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTyped;
 
 import java.util.Objects;
 
-import static com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapperFieldModel.DynamoDBAttributeType;;
+import static com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapperFieldModel.DynamoDBAttributeType;
+import static java.lang.String.format;
 
-@DynamoDBTable(tableName="NhlPlayByPlayProcessingAggregate")
 public class NhlPlayByPlayProcessingItem {
 
     private String compositeGameId;
@@ -37,7 +36,7 @@ public class NhlPlayByPlayProcessingItem {
     public void setInIntermission(final boolean isIntermission) { this.inIntermission = isIntermission; }
 
     public String toString() {
-        return String.format("NhlPlayByPlayProcessingItem(compositeGameId=%s,lastProcessedTimeStamp=%s,lastProcessedEventIndex=%s," +
+        return format("NhlPlayByPlayProcessingItem(compositeGameId=%s,lastProcessedTimeStamp=%s,lastProcessedEventIndex=%s," +
                 "inIntermission=%s)", compositeGameId, lastProcessedTimeStamp, lastProcessedEventIndex, inIntermission);
     }
 
