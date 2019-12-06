@@ -1,9 +1,5 @@
 package iansteph.nhlp3.eventpublisher.handler;
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapperConfig;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.s3.AmazonS3;
@@ -13,7 +9,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import iansteph.nhlp3.eventpublisher.client.NhlPlayByPlayClient;
-import iansteph.nhlp3.eventpublisher.model.dynamo.NhlPlayByPlayProcessingItem;
 import iansteph.nhlp3.eventpublisher.model.event.PlayEvent;
 import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
 import iansteph.nhlp3.eventpublisher.model.nhl.gamedata.Teams;
@@ -30,12 +25,15 @@ import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.services.cloudwatchevents.CloudWatchEventsClient;
 import software.amazon.awssdk.services.cloudwatchevents.model.DeleteRuleRequest;
 import software.amazon.awssdk.services.cloudwatchevents.model.RemoveTargetsRequest;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.sns.SnsClient;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -58,14 +56,8 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
         final JsonNode appConfig = initializeAppConfig();
 
         // DynamoDB
-        final AmazonDynamoDB amazonDynamoDB = AmazonDynamoDBClientBuilder.standard().build();
-        final String dynamoDBTableName = appConfig.get("nhlPlayByPlayProcessingDynamoDbTableName").asText();
-        final DynamoDBMapperConfig dynamoDBMapperConfig = new DynamoDBMapperConfig.Builder()
-                .withTableNameOverride(new DynamoDBMapperConfig.TableNameOverride(dynamoDBTableName))
-                .build();
-
-        final DynamoDBMapper dynamoDbMapper = new DynamoDBMapper(amazonDynamoDB, dynamoDBMapperConfig);
-        this.dynamoDbProxy = new DynamoDbProxy(dynamoDbMapper);
+        final DynamoDbClient dynamoDbClient = DynamoDbClient.create();
+        this.dynamoDbProxy = new DynamoDbProxy(dynamoDbClient, appConfig.get("nhlPlayByPlayProcessingDynamoDbTableName").asText());
 
         // S3
         final AmazonS3 amazonS3Client = AmazonS3ClientBuilder.defaultClient();
@@ -99,11 +91,11 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
         this.cloudWatchEventsClient = cloudWatchEventsClient;
     }
 
-    public NhlPlayByPlayProcessingItem handleRequest(final EventPublisherRequest eventPublisherRequest, final Context context) {
+    public Map<String, AttributeValue> handleRequest(final EventPublisherRequest eventPublisherRequest, final Context context) {
 
-        final NhlPlayByPlayProcessingItem nhlPlayByPlayProcessingItem =
+        final Map<String, AttributeValue> nhlPlayByPlayProcessingItem =
                 dynamoDbProxy.getNhlPlayByPlayProcessingItem(eventPublisherRequest);
-        final String lastProcessedTimestamp = nhlPlayByPlayProcessingItem.getLastProcessedTimeStamp();
+        final String lastProcessedTimestamp = nhlPlayByPlayProcessingItem.get("lastProcessedTimeStamp").s();
         final Optional<NhlLiveGameFeedResponse> nhlLiveGameFeedResponse = nhlPlayByPlayProxy.getPlayByPlayEventsSinceLastProcessedTimestamp(
                 lastProcessedTimestamp, eventPublisherRequest);
         if (nhlLiveGameFeedResponse.isPresent()) {
@@ -166,11 +158,11 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
     }
 
     private List<PlayEvent> splitPlayByPlayResponseIntoPlaysSinceLastTimestamp(
-            final NhlPlayByPlayProcessingItem nhlPlayByPlayProcessingItem,
+            final Map<String, AttributeValue> nhlPlayByPlayProcessingItem,
             final NhlLiveGameFeedResponse nhlLiveGameFeedResponse
     ) {
 
-        final int lastProcessedEventIndex = nhlPlayByPlayProcessingItem.getLastProcessedEventIndex();
+        final int lastProcessedEventIndex = Integer.parseInt(nhlPlayByPlayProcessingItem.get("lastProcessedEventIndex").n());
 
         // Add 1 because lastEventIndex was already processed (unless index is 0 then nothing has been processed yet)
         final int startPlayIndex = lastProcessedEventIndex == 0 ? lastProcessedEventIndex : lastProcessedEventIndex + 1;
