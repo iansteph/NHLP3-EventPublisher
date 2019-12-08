@@ -9,6 +9,7 @@ Parameters:
     AllowedValues:
       - personal
       - alpha
+      - beta
       - prod
     Description: Enter prod or personal stage for this CloudFormation Stack. Default is prod.
 
