@@ -1,5 +1,6 @@
 package iansteph.nhlp3.eventpublisher.proxy;
 
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import iansteph.nhlp3.eventpublisher.UnitTestBase;
@@ -34,6 +35,14 @@ public class EventPublisherProxyTest extends UnitTestBase {
         eventPublisherProxy.publish(playEvent, 1, 2);
 
         verify(mockAmazonSnsClient, times(1)).publish(any(PublishRequest.class));
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void testPublishThrowsJsonProcessingExceptionIfDeserializingResponseToStringFails() {
+
+        when(mockObjectMapper.writeValueAsString(any(PlayEvent.class))).thenThrow(new JsonParseException(null, ""));
+
+        eventPublisherProxy.publish(new PlayEvent(), 1, 2);
     }
 
     @Test(expected = RuntimeException.class)
