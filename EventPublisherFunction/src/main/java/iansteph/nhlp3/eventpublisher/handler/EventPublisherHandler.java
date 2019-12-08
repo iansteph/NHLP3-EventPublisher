@@ -193,8 +193,7 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
             final int gamePk = nhlLiveGameFeedResponse.getGamePk();
             final String eventRuleName = String.format("GameId-%s", gamePk);
             final String eventBusName = "default";
-            logger.info(format("Attempting to delete CloudWatch Event Rule %s , because the corresponding game has ended",
-                    eventRuleName));
+            logger.info(format("Attempting to delete CloudWatch Event Rule %s , because the corresponding game has ended", eventRuleName));
 
             // Remove all Targets for CloudWatch Event Rule before it can be removed
             final RemoveTargetsRequest removeTargetsRequest = RemoveTargetsRequest.builder()
@@ -210,8 +209,7 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
                     .eventBusName(eventBusName)
                     .build();
             cloudWatchEventsClient.deleteRule(deleteRuleRequest);
-            logger.info(format("Successfully deleted CloudWatch Event Rule %s , because the corresponding game has ended",
-                    eventRuleName));
+            logger.info(format("Successfully deleted CloudWatch Event Rule %s , because the corresponding game has ended", eventRuleName));
         }
     }
 }
