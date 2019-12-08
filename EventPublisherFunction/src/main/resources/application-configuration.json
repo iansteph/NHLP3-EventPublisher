@@ -4,6 +4,11 @@
     "nhlPlayByPlayProcessingDynamoDbTableName" : "personal-NhlPlayByPlayProcessingAggregate",
     "nhlPlayByPlayResponseArchiveS3BucketName" : "nhlp3-event-publisher-play-by-play-requests-archive-personal"
   },
+  "gamma" : {
+    "nhlPlayByPlayEventsTopicArn" : "arn:aws:sns:us-east-1:627812672245:NHLP3-Play-by-Play-Events-gamma",
+    "nhlPlayByPlayProcessingDynamoDbTableName" : "gamma-NhlPlayByPlayProcessingAggregate",
+    "nhlPlayByPlayResponseArchiveS3BucketName" : "nhlp3-event-publisher-play-by-play-requests-archive-gamma"
+  },
   "prod" : {
     "nhlPlayByPlayEventsTopicArn" : "arn:aws:sns:us-east-1:627812672245:NHLP3-Play-by-Play-Events-prod",
     "nhlPlayByPlayProcessingDynamoDbTableName" : "prod-NhlPlayByPlayProcessingAggregate",
