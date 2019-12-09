@@ -30,7 +30,7 @@ Resources:
       Description: Event publisher function for NHLP3 to publish each play-by-play event for each game
       MemorySize: 1024
       Timeout: 60 # It took 42-43s to process 348 events @ 256MB memory
-      Tracing: Active
+      #Tracing: Active # Temporarily disable X-Ray tracing to prevent breaching Free-tier limits while still in development
       Role:
         Fn::GetAtt:
           - EventPublisherExecutionRole
