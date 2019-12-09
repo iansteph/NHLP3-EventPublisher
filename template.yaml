@@ -111,6 +111,12 @@ Resources:
     Properties:
       TopicName:
         Fn::Sub: NHLP3-Play-by-Play-Events-${Stage}
+      Subscription:
+        - Endpoint:
+            Fn::GetAtt:
+              - NhlPlayByPlayEventsStorageQueue
+              - Arn
+          Protocol: sqs
 
   NHLP3EventsSnsTopicPolicy:
     Type: AWS::SNS::TopicPolicy
@@ -209,3 +215,29 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
+
+  NhlPlayByPlayEventsStorageQueue:
+    Type: AWS::SQS:Queue
+    Properties:
+      FifoQueue: true
+      QueueName:
+        Fn::Sub: ${Stage}-PlayByPlayEventsStorage-${Stage}
+      MessageRetentionPeriod: 1209600 # The maximum (14 days)
+
+  NhlPlayByPLayEventsStorageQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - Ref: NhlPlayByPlayEventsStorageQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action:
+              - sqs:SendMessage
+            Resource: '*'
+            Condition:
+              ArnEquals:
+                aws:SourceArn:
+                  Ref: NHLP3EventsSnsTopic
