@@ -53,6 +53,7 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
     private static final Logger logger = LogManager.getLogger(EventPublisherHandler.class);
 
     public EventPublisherHandler() {
+
         final JsonNode appConfig = initializeAppConfig();
 
         // DynamoDB

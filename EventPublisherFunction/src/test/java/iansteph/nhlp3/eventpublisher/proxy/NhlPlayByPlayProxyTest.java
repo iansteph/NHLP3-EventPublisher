@@ -1,5 +1,7 @@
 package iansteph.nhlp3.eventpublisher.proxy;
 
+import com.amazonaws.AmazonServiceException;
+import com.amazonaws.SdkClientException;
 import com.amazonaws.services.s3.AmazonS3;
 import iansteph.nhlp3.eventpublisher.UnitTestBase;
 import iansteph.nhlp3.eventpublisher.client.NhlPlayByPlayClient;
@@ -77,5 +79,26 @@ public class NhlPlayByPlayProxyTest extends UnitTestBase {
     public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsNullPointerExceptionWhenLastProcessedTimestampTimeIsInvalid() {
 
         proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("20191021_256060", EventPublisherRequest);
+    }
+
+    @Test
+    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsAmazonServiceExceptionWhenServerSideErrorThrownWhenArchivingRequestsToS3() {
+
+        when(mockS3Client.putObject(anyString(), anyString(), anyString())).thenThrow(new AmazonServiceException("someExceptionMessage"));
+
+        proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("20191021_073000", EventPublisherRequest);
+
+        verify(mockS3Client, times(1)).putObject(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsSdkClientExceptionWhenServerSideErrorThrownWhenArchivingRequestsToS3() {
+
+        when(mockS3Client.putObject(anyString(), anyString(), anyString())).thenThrow(new SdkClientException("someExceptionMessage"));
+
+        proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("20191021_073000", EventPublisherRequest);
+
+        verify(mockS3Client, times(1)).putObject(anyString(), anyString(), anyString());
+
     }
 }
