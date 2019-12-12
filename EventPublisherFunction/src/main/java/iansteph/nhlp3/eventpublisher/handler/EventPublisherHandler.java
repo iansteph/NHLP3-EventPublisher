@@ -2,8 +2,6 @@ package iansteph.nhlp3.eventpublisher.handler;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,16 +19,23 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.client.RestTemplate;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudwatchevents.CloudWatchEventsClient;
 import software.amazon.awssdk.services.cloudwatchevents.model.DeleteRuleRequest;
 import software.amazon.awssdk.services.cloudwatchevents.model.RemoveTargetsRequest;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.utils.AttributeMap;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -56,26 +61,48 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
 
         final JsonNode appConfig = initializeAppConfig();
 
+        // Common
+        final AwsCredentialsProvider defaultAwsCredentialsProvider = DefaultCredentialsProvider.builder().build();
+        final SdkHttpClient httpClient = ApacheHttpClient.builder().buildWithDefaults(AttributeMap.empty());
+
         // DynamoDB
-        final DynamoDbClient dynamoDbClient = DynamoDbClient.create();
+        final DynamoDbClient dynamoDbClient = DynamoDbClient.builder()
+                .credentialsProvider(defaultAwsCredentialsProvider)
+                .endpointOverride(URI.create("https://dynamodb.us-east-1.amazonaws.com/"))
+                .httpClient(httpClient)
+                .region(Region.US_EAST_1)
+                .build();
         this.dynamoDbProxy = new DynamoDbProxy(dynamoDbClient, appConfig.get("nhlPlayByPlayProcessingDynamoDbTableName").asText());
 
         // S3
-        final AmazonS3 amazonS3Client = AmazonS3ClientBuilder.defaultClient();
+        final S3Client s3Client = S3Client.builder()
+                .credentialsProvider(defaultAwsCredentialsProvider)
+                .endpointOverride(URI.create("https://s3.us-east-1.amazonaws.com/"))
+                .httpClient(httpClient)
+                .region(Region.US_EAST_1)
+                .build();
 
         // NHL Play-By-Play
         final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(createRestTemplateAndRegisterCustomObjectMapper());
-        this.nhlPlayByPlayProxy = new NhlPlayByPlayProxy(nhlPlayByPlayClient, amazonS3Client,
+        this.nhlPlayByPlayProxy = new NhlPlayByPlayProxy(nhlPlayByPlayClient, s3Client,
                 appConfig.get("nhlPlayByPlayResponseArchiveS3BucketName").asText());
 
         // SNS
-        final SnsClient snsClient = SnsClient.create();
+        final SnsClient snsClient = SnsClient.builder()
+                .credentialsProvider(defaultAwsCredentialsProvider)
+                .endpointOverride(URI.create("https://sns.us-east-1.amazonaws.com/"))
+                .httpClient(httpClient)
+                .region(Region.US_EAST_1)
+                .build();
         this.eventPublisherProxy = new EventPublisherProxy(snsClient, new ObjectMapper(),
                 appConfig.get("nhlPlayByPlayEventsTopicArn").asText());
 
         // CloudWatch
         this.cloudWatchEventsClient = CloudWatchEventsClient.builder()
-                .httpClientBuilder(ApacheHttpClient.builder())
+                .credentialsProvider(defaultAwsCredentialsProvider)
+                .endpointOverride(URI.create("https://events.us-east-1.amazonaws.com/"))
+                .httpClient(httpClient)
+                .region(Region.US_EAST_1)
                 .build();
     }
 

@@ -1,13 +1,14 @@
 package iansteph.nhlp3.eventpublisher.proxy;
 
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.SdkClientException;
-import com.amazonaws.services.s3.AmazonS3;
 import iansteph.nhlp3.eventpublisher.client.NhlPlayByPlayClient;
 import iansteph.nhlp3.eventpublisher.model.request.EventPublisherRequest;
 import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import software.amazon.awssdk.core.exception.SdkException;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -21,19 +22,19 @@ import static java.lang.String.format;
 public class NhlPlayByPlayProxy {
 
     private final NhlPlayByPlayClient nhlPlayByPlayClient;
-    private final AmazonS3 amazonS3Client;
+    private final S3Client s3Client;
     private final String nhlPlayByPlayResponseArchiveS3BucketName;
 
     private static final Logger logger = LogManager.getLogger(NhlPlayByPlayProxy.class);
 
     public NhlPlayByPlayProxy(
             final NhlPlayByPlayClient nhlPlayByPlayClient,
-            final AmazonS3 amazonS3Client,
+            final S3Client s3Client,
             final String nhlPlayByPlayResponseArchiveS3BucketName
     ) {
 
         this.nhlPlayByPlayClient = nhlPlayByPlayClient;
-        this.amazonS3Client = amazonS3Client;
+        this.s3Client = s3Client;
         this.nhlPlayByPlayResponseArchiveS3BucketName = nhlPlayByPlayResponseArchiveS3BucketName;
     }
 
@@ -90,18 +91,18 @@ public class NhlPlayByPlayProxy {
         final String s3ObjectKey = createS3ObjectKey(String.valueOf(gameId), lastProcessedTimestamp);
         try {
 
-            amazonS3Client.putObject(nhlPlayByPlayResponseArchiveS3BucketName, s3ObjectKey, response);
+            final PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(nhlPlayByPlayResponseArchiveS3BucketName)
+                    .key(s3ObjectKey)
+                    .build();
+            final RequestBody requestBody = RequestBody.fromString(response);
+            s3Client.putObject(putObjectRequest, requestBody);
             logger.info(format("GameId %s | Archived NHL Play-by-Play API response at lastProcessedTimestamp %s to S3", gameId,
                     lastProcessedTimestamp));
-        } catch (AmazonServiceException e) {
+        } catch (SdkException e) {
 
-            logger.error(format("GameId %s | Encountered a server-side exception when attempting to archive the NHL Play-by-Play API " +
-                    "response to S3. S3 couldn't successfully handle the request. Exception: %s", gameId, e.getMessage()), e);
-        } catch (SdkClientException e) {
-
-            logger.error(format("GameId %s | Encountered a client-side exception when attempting to archive the NHL Play-by-Play API " +
-                    "response to S3. Either S3 couldn't be contacted by the client or the client couldn't parse the response from S3. " +
-                    "Exception: %s", gameId, e.getMessage()), e);
+            logger.error(format("GameId %s | Encountered a exception when attempting to archive the NHL Play-by-Play API " +
+                    "response to S3. Exception: %s", gameId, e.getMessage()), e);
         }
     }
 

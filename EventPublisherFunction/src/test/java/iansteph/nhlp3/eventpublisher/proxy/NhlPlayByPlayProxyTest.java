@@ -1,14 +1,15 @@
 package iansteph.nhlp3.eventpublisher.proxy;
 
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.SdkClientException;
-import com.amazonaws.services.s3.AmazonS3;
 import iansteph.nhlp3.eventpublisher.UnitTestBase;
 import iansteph.nhlp3.eventpublisher.client.NhlPlayByPlayClient;
 import iansteph.nhlp3.eventpublisher.model.request.EventPublisherRequest;
 import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
 import org.junit.Before;
 import org.junit.Test;
+import software.amazon.awssdk.core.exception.SdkException;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
 import java.time.format.DateTimeParseException;
@@ -26,7 +27,7 @@ import static org.mockito.Mockito.when;
 public class NhlPlayByPlayProxyTest extends UnitTestBase {
 
     private final NhlPlayByPlayClient mockNhlPlayByPlayClient = mock(NhlPlayByPlayClient.class);
-    private final AmazonS3 mockS3Client = mock(AmazonS3.class);
+    private final S3Client mockS3Client = mock(S3Client.class);
     private final NhlPlayByPlayProxy proxy = new NhlPlayByPlayProxy(mockNhlPlayByPlayClient, mockS3Client, "someBucketName");
 
     @Before
@@ -47,7 +48,7 @@ public class NhlPlayByPlayProxyTest extends UnitTestBase {
 
         verify(mockNhlPlayByPlayClient, times(1)).getPlayByPlayEventsSinceLastProcessedTimestamp(anyInt(),
                 anyString());
-        verify(mockS3Client, times(1)).putObject(anyString(), anyString(), anyString());
+        verify(mockS3Client, times(1)).putObject(any(PutObjectRequest.class), any(RequestBody.class));
         assertThat(response, is(notNullValue()));
     }
 
@@ -82,23 +83,12 @@ public class NhlPlayByPlayProxyTest extends UnitTestBase {
     }
 
     @Test
-    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsAmazonServiceExceptionWhenServerSideErrorThrownWhenArchivingRequestsToS3() {
+    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsSdkExceptionWhenS3CallFailsWhenArchivingRequestsToS3() {
 
-        when(mockS3Client.putObject(anyString(), anyString(), anyString())).thenThrow(new AmazonServiceException("someExceptionMessage"));
-
-        proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("20191021_073000", EventPublisherRequest);
-
-        verify(mockS3Client, times(1)).putObject(anyString(), anyString(), anyString());
-    }
-
-    @Test
-    public void testGetPlayByPlayEventsSinceLastProcessedTimestampThrowsSdkClientExceptionWhenServerSideErrorThrownWhenArchivingRequestsToS3() {
-
-        when(mockS3Client.putObject(anyString(), anyString(), anyString())).thenThrow(new SdkClientException("someExceptionMessage"));
+        when(mockS3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class))).thenThrow(SdkException.create(null, null));
 
         proxy.getPlayByPlayEventsSinceLastProcessedTimestamp("20191021_073000", EventPublisherRequest);
 
-        verify(mockS3Client, times(1)).putObject(anyString(), anyString(), anyString());
-
+        verify(mockS3Client, times(1)).putObject(any(PutObjectRequest.class), any(RequestBody.class));
     }
 }
