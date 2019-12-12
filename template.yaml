@@ -35,18 +35,6 @@ Resources:
         Fn::GetAtt:
           - EventPublisherExecutionRole
           - Arn
-      Policies:
-        - Sid: TrustCloudWatchEventRulesToInvokeLambdaFunction # See here: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/resource-based-policies-cwe.html
-          Effect: Allow
-          Action:
-            - lambda:InvokeFunction
-          Resource:
-            Fn::Sub: arn:aws:lambda:us-east-1:627812672245:function:NHLP3-EventPublisher-${stage}
-          Principal:
-            Service: events.amazonaws.com
-          Condition:
-            ArnLike:
-              AWS:SourceArn: 'arn:aws:events:us-east-1:627812672245:rule/GameId-*'
       Environment:
         Variables:
           Stage:
@@ -105,6 +93,17 @@ Resources:
                   Fn::GetAtt:
                     - NHLP3EventPublisherPlayByPlayAPIRequestArchiveBucket
                     - Arn
+
+  EventPublisherFunctionLambaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+          - EventPublisherFunction
+          - Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: 'arn:aws:events:us-east-1:627812672245:rule/GameId-*'
 
   NHLP3EventsSnsTopic:
     Type: AWS::SNS::Topic
