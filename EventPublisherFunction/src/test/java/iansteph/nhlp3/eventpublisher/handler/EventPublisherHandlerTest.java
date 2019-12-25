@@ -19,7 +19,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.contrib.java.lang.system.EnvironmentVariables;
-import software.amazon.awssdk.services.cloudwatchevents.CloudWatchEventsClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.sns.model.PublishResponse;
 
@@ -33,7 +32,6 @@ public class EventPublisherHandlerTest extends UnitTestBase {
     private final DynamoDbProxy mockDynamoDbProxy = mock(DynamoDbProxy.class);
     private final NhlPlayByPlayProxy mockNhlPlayByPlayProxy = mock(NhlPlayByPlayProxy.class);
     private final EventPublisherProxy mockEventPublisherProxy = mock(EventPublisherProxy.class);
-    private final CloudWatchEventsClient mockCloudWatchEventsClient = mock(CloudWatchEventsClient.class);
 
     @Before
     public void setupMocks() {
@@ -73,7 +71,7 @@ public class EventPublisherHandlerTest extends UnitTestBase {
     public void testHandleRequestIsSuccessful() {
 
         EventPublisherHandler eventPublisherHandler = new EventPublisherHandler(mockDynamoDbProxy, mockNhlPlayByPlayProxy,
-                mockEventPublisherProxy, mockCloudWatchEventsClient);
+                mockEventPublisherProxy);
         final EventPublisherRequest eventPublisherRequest = new EventPublisherRequest();
         eventPublisherRequest.setGameId(GameId);
 
@@ -101,7 +99,7 @@ public class EventPublisherHandlerTest extends UnitTestBase {
         updatedItem.put("lastProcessedEventIndex", AttributeValue.builder().n("0").build());
         when(mockDynamoDbProxy.updateNhlPlayByPlayProcessingItem(any(), any())).thenReturn(updatedItem);
         EventPublisherHandler eventPublisherHandler = new EventPublisherHandler(mockDynamoDbProxy, mockNhlPlayByPlayProxy,
-                mockEventPublisherProxy, mockCloudWatchEventsClient);
+                mockEventPublisherProxy);
         final EventPublisherRequest eventPublisherRequest = new EventPublisherRequest();
         eventPublisherRequest.setGameId(GameId);
 
@@ -131,7 +129,7 @@ public class EventPublisherHandlerTest extends UnitTestBase {
         when(mockDynamoDbProxy.getNhlPlayByPlayProcessingItem(any(EventPublisherRequest.class))).thenReturn(item);
         when(mockDynamoDbProxy.updateNhlPlayByPlayProcessingItem(any(), any())).thenReturn(item);
         EventPublisherHandler eventPublisherHandler = new EventPublisherHandler(mockDynamoDbProxy, mockNhlPlayByPlayProxy,
-                mockEventPublisherProxy, mockCloudWatchEventsClient);
+                mockEventPublisherProxy);
         final EventPublisherRequest eventPublisherRequest = new EventPublisherRequest();
         eventPublisherRequest.setGameId(GameId);
 
@@ -157,7 +155,7 @@ public class EventPublisherHandlerTest extends UnitTestBase {
         item.put("lastProcessedTimeStamp", AttributeValue.builder().s("20191027_160744").build());
         when(mockDynamoDbProxy.getNhlPlayByPlayProcessingItem(any(EventPublisherRequest.class))).thenReturn(item);
         EventPublisherHandler eventPublisherHandler = new EventPublisherHandler(mockDynamoDbProxy, mockNhlPlayByPlayProxy,
-                mockEventPublisherProxy, mockCloudWatchEventsClient);
+                mockEventPublisherProxy);
         final EventPublisherRequest eventPublisherRequest = new EventPublisherRequest();
         eventPublisherRequest.setGameId(GameId);
 

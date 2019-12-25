@@ -75,10 +75,6 @@
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
-      <artifactId>cloudwatchevents</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>software.amazon.awssdk</groupId>
       <artifactId>s3</artifactId>
     </dependency>
     <dependency>

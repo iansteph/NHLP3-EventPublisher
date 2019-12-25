@@ -24,9 +24,6 @@ import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.cloudwatchevents.CloudWatchEventsClient;
-import software.amazon.awssdk.services.cloudwatchevents.model.DeleteRuleRequest;
-import software.amazon.awssdk.services.cloudwatchevents.model.RemoveTargetsRequest;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -49,7 +46,6 @@ import static java.lang.String.format;
  */
 public class EventPublisherHandler implements RequestHandler<EventPublisherRequest, Object> {
 
-    private final CloudWatchEventsClient cloudWatchEventsClient;
     private final DynamoDbProxy dynamoDbProxy;
     private final EventPublisherProxy eventPublisherProxy;
     private final NhlPlayByPlayProxy nhlPlayByPlayProxy;
@@ -96,27 +92,17 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
                 .build();
         this.eventPublisherProxy = new EventPublisherProxy(snsClient, new ObjectMapper(),
                 appConfig.get("nhlPlayByPlayEventsTopicArn").asText());
-
-        // CloudWatch
-        this.cloudWatchEventsClient = CloudWatchEventsClient.builder()
-                .credentialsProvider(defaultAwsCredentialsProvider)
-                .endpointOverride(URI.create("https://events.us-east-1.amazonaws.com/"))
-                .httpClient(httpClient)
-                .region(Region.US_EAST_1)
-                .build();
     }
 
     public EventPublisherHandler(
             final DynamoDbProxy dynamoDbProxy,
             final NhlPlayByPlayProxy nhlPlayByPlayProxy,
-            final EventPublisherProxy eventPublisherProxy,
-            final CloudWatchEventsClient cloudWatchEventsClient
+            final EventPublisherProxy eventPublisherProxy
     ) {
 
         this.dynamoDbProxy = dynamoDbProxy;
         this.nhlPlayByPlayProxy = nhlPlayByPlayProxy;
         this.eventPublisherProxy = eventPublisherProxy;
-        this.cloudWatchEventsClient = cloudWatchEventsClient;
     }
 
     public Map<String, AttributeValue> handleRequest(final EventPublisherRequest eventPublisherRequest, final Context context) {
@@ -134,12 +120,6 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
             logger.info(format("%s event(s) since last event processed", playEvents.size()));
             final Teams teamsInPlay = response.getGameData().getTeams();
             playEvents.forEach(p -> eventPublisherProxy.publish(p, teamsInPlay.getHome().getId(), teamsInPlay.getAway().getId()));
-
-            // If game is over delete the CloudWatch Event Rule that triggers the events for the game
-            if (isGameCompleted(nhlLiveGameFeedResponse.get())) {
-
-                deleteCloudWatchEventRulesForCompletedGame(response);
-            }
         }
         return dynamoDbProxy.updateNhlPlayByPlayProcessingItem(nhlPlayByPlayProcessingItem, nhlLiveGameFeedResponse);
     }
@@ -209,35 +189,6 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
             return playsToPublish.stream()
                     .map(p -> new PlayEvent().withGamePk(nhlLiveGameFeedResponse.getGamePk()).withPlay(p))
                     .collect(Collectors.toList());
-        }
-    }
-
-    private void deleteCloudWatchEventRulesForCompletedGame(final NhlLiveGameFeedResponse nhlLiveGameFeedResponse) {
-
-        final boolean isGameCompleted = nhlLiveGameFeedResponse.getGameData().getStatus().getAbstractGameState().toLowerCase()
-                .equals("final");
-        if (isGameCompleted) {
-
-            final int gamePk = nhlLiveGameFeedResponse.getGamePk();
-            final String eventRuleName = String.format("GameId-%s", gamePk);
-            final String eventBusName = "default";
-            logger.info(format("Attempting to delete CloudWatch Event Rule %s , because the corresponding game has ended", eventRuleName));
-
-            // Remove all Targets for CloudWatch Event Rule before it can be removed
-            final RemoveTargetsRequest removeTargetsRequest = RemoveTargetsRequest.builder()
-                    .rule(eventRuleName)
-                    .eventBusName(eventBusName)
-                    .ids("Event-Publisher-Lambda-Function")
-                    .build();
-            cloudWatchEventsClient.removeTargets(removeTargetsRequest);
-
-            // Delete CloudWatch Event Rule to stop sending events for game that is finished
-            final DeleteRuleRequest deleteRuleRequest = DeleteRuleRequest.builder()
-                    .name(eventRuleName)
-                    .eventBusName(eventBusName)
-                    .build();
-            cloudWatchEventsClient.deleteRule(deleteRuleRequest);
-            logger.info(format("Successfully deleted CloudWatch Event Rule %s , because the corresponding game has ended", eventRuleName));
         }
     }
 }
