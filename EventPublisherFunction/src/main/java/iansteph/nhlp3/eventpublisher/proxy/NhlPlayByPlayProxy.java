@@ -1,5 +1,7 @@
 package iansteph.nhlp3.eventpublisher.proxy;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import iansteph.nhlp3.eventpublisher.client.NhlPlayByPlayClient;
 import iansteph.nhlp3.eventpublisher.model.request.EventPublisherRequest;
 import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
@@ -10,18 +12,18 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
 public class NhlPlayByPlayProxy {
 
     private final NhlPlayByPlayClient nhlPlayByPlayClient;
+    private final ObjectMapper objectMapper;
     private final S3Client s3Client;
     private final String nhlPlayByPlayResponseArchiveS3BucketName;
 
@@ -29,86 +31,72 @@ public class NhlPlayByPlayProxy {
 
     public NhlPlayByPlayProxy(
             final NhlPlayByPlayClient nhlPlayByPlayClient,
+            final ObjectMapper objectMapper,
             final S3Client s3Client,
             final String nhlPlayByPlayResponseArchiveS3BucketName
     ) {
 
         this.nhlPlayByPlayClient = nhlPlayByPlayClient;
+        this.objectMapper = objectMapper;
         this.s3Client = s3Client;
         this.nhlPlayByPlayResponseArchiveS3BucketName = nhlPlayByPlayResponseArchiveS3BucketName;
     }
 
-    public Optional<NhlLiveGameFeedResponse> getPlayByPlayEventsSinceLastProcessedTimestamp(
-            final String lastProcessedTimestamp,
-            final EventPublisherRequest eventPublisherRequest
-    ) {
+    public Optional<NhlLiveGameFeedResponse> getPlayByPlayData(final EventPublisherRequest eventPublisherRequest) {
 
-        final int gameId = eventPublisherRequest.getGameId();
         try {
 
-            validateArguments(gameId, lastProcessedTimestamp, eventPublisherRequest);
-            final String response =  nhlPlayByPlayClient.getPlayByPlayEventsSinceLastProcessedTimestamp(gameId,
-                    lastProcessedTimestamp);
-            archiveResponseToS3(response, gameId, lastProcessedTimestamp);
-            return nhlPlayByPlayClient.deserializeResponse(response, gameId, lastProcessedTimestamp);
+            validateArguments(eventPublisherRequest);
+            final int gameId = eventPublisherRequest.getGameId();
+            final NhlLiveGameFeedResponse response = nhlPlayByPlayClient.getPlayByPlayData(gameId);
+            archiveResponseToS3(response, gameId);
+            return Optional.ofNullable(response);
         }
-        catch (NullPointerException | IllegalArgumentException e) {
+        catch (NullPointerException e) {
 
             logger.error(e);
             throw e;
         }
     }
 
-    private void validateArguments(
-            final int gameId,
-            final String lastProcessedTimestamp,
-            final EventPublisherRequest eventPublisherRequest
-    ) {
+    private void validateArguments(final EventPublisherRequest eventPublisherRequest) {
 
-        checkNotNull(eventPublisherRequest, format("GameId %s | EventPublisherRequest must be non-null when calling" +
-                "NhlPlayByPlayProxy::getPlayByPlayEventsSinceLastProcessedTimestamp at lastProcessedTimestamp %s", gameId,
-                lastProcessedTimestamp));
-        validateLastProcessedTimestamp(gameId, lastProcessedTimestamp);
+        checkNotNull(eventPublisherRequest, "EventPublisherRequest must be non-null when calling" +
+                "NhlPlayByPlayProxy::getPlayByPlayData");
     }
 
-    private void validateLastProcessedTimestamp(final int gameId, final String lastProcessedTimestamp) {
+    private void archiveResponseToS3(final NhlLiveGameFeedResponse response, final int gameId) {
 
-        // According to https://gitlab.com/dword4/nhlapi/blob/master/stats-api.md#game it is of the format yyyymmdd_hhmmss
-        checkNotNull(lastProcessedTimestamp, format("GameId %s | lastProcessedTimestamp must be non-null when calling" +
-                "NhlPlayByPlayProxy::getPlayByPlayEventsSinceLastProcessedTimestamp at lastProcessedTimestamp %s", gameId,
-                lastProcessedTimestamp));
-        checkArgument(lastProcessedTimestamp.length() == 15, format("GameId %s | LastProcessedTimestamp must match " +
-                "pattern for the NHL Play-by-Play API at lastProcessedTimestamp %s", gameId, lastProcessedTimestamp));
-        final String date = lastProcessedTimestamp.substring(0, 8);
-        LocalDate.parse(date, DateTimeFormatter.BASIC_ISO_DATE);
-        final String time = String.format("%s:%s:%s", lastProcessedTimestamp.substring(9, 11), lastProcessedTimestamp.substring(11, 13),
-                lastProcessedTimestamp.substring(13));
-        LocalTime.parse(time);
-    }
-
-    private void archiveResponseToS3(final String response, final int gameId, final String lastProcessedTimestamp) {
-
-        final String s3ObjectKey = createS3ObjectKey(String.valueOf(gameId), lastProcessedTimestamp);
+        final String nowTimestamp = createS3FormattedTimestamp();
+        final String s3ObjectKey = createS3ObjectKey(String.valueOf(gameId), nowTimestamp);
         try {
 
             final PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(nhlPlayByPlayResponseArchiveS3BucketName)
                     .key(s3ObjectKey)
                     .build();
-            final RequestBody requestBody = RequestBody.fromString(response);
+            final String serializedResponse = objectMapper.writeValueAsString(response);
+            final RequestBody requestBody = RequestBody.fromString(serializedResponse);
             s3Client.putObject(putObjectRequest, requestBody);
-            logger.info(format("GameId %s | Archived NHL Play-by-Play API response at lastProcessedTimestamp %s to S3", gameId,
-                    lastProcessedTimestamp));
-        } catch (SdkException e) {
+            logger.info(format("GameId %s | Archived NHL Play-by-Play API response at timestamp %s to S3", gameId,
+                    nowTimestamp));
+        } catch (JsonProcessingException | SdkException e) {
 
             logger.error(format("GameId %s | Encountered a exception when attempting to archive the NHL Play-by-Play API " +
                     "response to S3. Exception: %s", gameId, e.getMessage()), e);
         }
     }
 
+    private String createS3FormattedTimestamp() {
+
+        final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd--HH-mm-ss--z");
+        final ZonedDateTime now = ZonedDateTime.now(ZoneId.of("UTC"));
+        return dateTimeFormatter.format(now);
+    }
+
     // Creates an S3 object key of the format "seasonStartYear-seasonEndYear/gameId/gameId-lastProcessedTimestamp" within the S3 bucket
     // Example: "2019-2020/2019020054/2019020054-20191122_173415" for gameId 2019020054
-    private String createS3ObjectKey(final String gameId, final String lastProcessedTimestamp) {
+    private String createS3ObjectKey(final String gameId, final String nowTimestamp) {
 
         // Sample GameId: 2019020054
         //
@@ -117,7 +105,7 @@ public class NhlPlayByPlayProxy {
         final int seasonStartYear = Integer.parseInt(gameId.substring(0, 4));
         final int seasonEndYear = seasonStartYear + 1;
         final String season = format("%s-%s", seasonStartYear, seasonEndYear);
-        final String objectName = format("%s-%s", gameId, lastProcessedTimestamp);
+        final String objectName = format("%s_%s", gameId, nowTimestamp);
         return format("%s/%s/%s", season, gameId, objectName);
     }
 }
