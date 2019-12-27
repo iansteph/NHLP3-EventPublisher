@@ -1,5 +1,7 @@
 package iansteph.nhlp3.eventpublisher;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.io.Files;
 import iansteph.nhlp3.eventpublisher.model.request.EventPublisherRequest;
 import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
@@ -34,14 +36,13 @@ public class UnitTestBase {
     // METHODS                                                                                                                            //
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    public String getTestPlayByPlayResponseResourceAsString() throws IOException {
+    public NhlLiveGameFeedResponse getPlayByPlayResponseFromTestResource() throws IOException {
 
-        return getTestResourceAsString("src/test/resources/play-by-play-response.json");
-    }
-
-    public String getTestResourceAsString(final String filename) throws IOException {
-
-        return Files.asCharSource(new File(filename), StandardCharsets.UTF_8).read();
+        final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        final File playByPlayResponseTestResourceFile = new File("src/test/resources/play-by-play-response.json");
+        final NhlLiveGameFeedResponse nhlLiveGameFeedResponse = objectMapper.readValue(playByPlayResponseTestResourceFile,
+                NhlLiveGameFeedResponse.class);
+        return nhlLiveGameFeedResponse;
     }
 
     public NhlLiveGameFeedResponse createNhlLiveGameFeedResponse() {
@@ -75,5 +76,14 @@ public class UnitTestBase {
         liveGameFeedResponse.setLiveData(liveData);
         liveGameFeedResponse.setGamePk(GameId);
         return liveGameFeedResponse;
+    }
+
+    // Create this class that extends ObjectMapper, because ObjectMapper.writeValueAsString() throws unchecked exception & does not compile
+    protected class SafeObjectMapper extends ObjectMapper {
+
+        @Override
+        public String writeValueAsString(final Object value) {
+            return "Hello, World!";
+        }
     }
 }

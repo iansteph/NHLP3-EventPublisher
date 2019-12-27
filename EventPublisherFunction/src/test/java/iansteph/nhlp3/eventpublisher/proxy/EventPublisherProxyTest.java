@@ -2,7 +2,6 @@ package iansteph.nhlp3.eventpublisher.proxy;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import iansteph.nhlp3.eventpublisher.UnitTestBase;
 import iansteph.nhlp3.eventpublisher.model.event.PlayEvent;
 import iansteph.nhlp3.eventpublisher.model.nhl.livedata.plays.Play;
@@ -22,7 +21,7 @@ public class EventPublisherProxyTest extends UnitTestBase {
     private final EventPublisherProxy eventPublisherProxy = new EventPublisherProxy(mockAmazonSnsClient, mockObjectMapper, "someTopicArn");
 
     @Test
-    public void testPublishIsSuccessful() {
+    public void test_publish_is_successful() {
 
         final Play play = new Play();
         final Result result = new Result();
@@ -38,7 +37,7 @@ public class EventPublisherProxyTest extends UnitTestBase {
     }
 
     @Test(expected = RuntimeException.class)
-    public void testPublishThrowsJsonProcessingExceptionIfDeserializingResponseToStringFails() {
+    public void test_publish_throws_JsonProcessingException_when_deserializing_response_to_string_fails() {
 
         when(mockObjectMapper.writeValueAsString(any(PlayEvent.class))).thenThrow(new JsonParseException(null, ""));
 
@@ -46,7 +45,7 @@ public class EventPublisherProxyTest extends UnitTestBase {
     }
 
     @Test(expected = RuntimeException.class)
-    public void testPublishCatchesJsonProcessingExceptionFromObjectMapperAndThrowsRuntimeException() {
+    public void test_publish_catches_JsonProcessingException_thrown_from_object_mapper_and_throws_RuntimeException_instead() {
 
         when(mockAmazonSnsClient.publish(any(PublishRequest.class))).thenReturn(PublishResponse.builder().build());
 
@@ -54,14 +53,5 @@ public class EventPublisherProxyTest extends UnitTestBase {
         when(mockObjectMapper.writeValueAsString(any())).thenThrow(new JsonProcessingException("Oops!"){});
 
         eventPublisherProxy.publish(new PlayEvent(), 1, 2);
-    }
-
-    // Create this class that extends ObjectMapper, because ObjectMapper.writeValueAsString() throws unchecked exception & does not compile
-    private class SafeObjectMapper extends ObjectMapper {
-
-        @Override
-        public String writeValueAsString(final Object value) {
-            return "Hello, World!";
-        }
     }
 }
