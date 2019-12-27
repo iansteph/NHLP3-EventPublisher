@@ -3,7 +3,9 @@ package iansteph.nhlp3.eventpublisher.handler;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.notNullValue;
+import static org.hamcrest.CoreMatchers.nullValue;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -39,16 +41,13 @@ public class EventPublisherHandlerTest extends UnitTestBase {
         // Mock DynamoDBMapper
         final Map<String, AttributeValue> initialItem = new HashMap<>();
         initialItem.put("lastProcessedEventIndex", AttributeValue.builder().n("0").build());
-        initialItem.put("lastProcessedTimeStamp", AttributeValue.builder().s("20191027_160744").build());
-        when(mockDynamoDbProxy.getNhlPlayByPlayProcessingItem(any(iansteph.nhlp3.eventpublisher.model.request.EventPublisherRequest.class)))
-                .thenReturn(initialItem);
+        when(mockDynamoDbProxy.getNhlPlayByPlayProcessingItem(any(EventPublisherRequest.class))).thenReturn(initialItem);
         final Map<String, AttributeValue> updatedItem = new HashMap<>();
         updatedItem.put("lastProcessedEventIndex", AttributeValue.builder().n("1").build());
         when(mockDynamoDbProxy.updateNhlPlayByPlayProcessingItem(any(), any())).thenReturn(updatedItem);
 
         // Mock NhlPlayByPlayProxy
-        when(mockNhlPlayByPlayProxy.getPlayByPlayEventsSinceLastProcessedTimestamp(anyString(), any(EventPublisherRequest.class)))
-                .thenReturn(Optional.of(NhlLiveGameFeedResponse));
+        when(mockNhlPlayByPlayProxy.getPlayByPlayData(any(EventPublisherRequest.class))).thenReturn(Optional.of(NhlLiveGameFeedResponse));
 
         // Mock EventPublisherProxy
         when(mockEventPublisherProxy.publish(any(PlayEvent.class), anyInt(), anyInt())).thenReturn(PublishResponse.builder().build());
@@ -58,7 +57,7 @@ public class EventPublisherHandlerTest extends UnitTestBase {
     public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
     @Test
-    public void testConstructorSuccessfullyInitializesEventPublisherHandler() {
+    public void test_constructor_successfully_initializes_EventPublisherHandler() {
 
         environmentVariables.set("Stage", "personal");
 
@@ -68,33 +67,35 @@ public class EventPublisherHandlerTest extends UnitTestBase {
     }
 
     @Test
-    public void testHandleRequestIsSuccessful() {
+    public void test_handleRequest_is_successful() {
 
         EventPublisherHandler eventPublisherHandler = new EventPublisherHandler(mockDynamoDbProxy, mockNhlPlayByPlayProxy,
                 mockEventPublisherProxy);
         final EventPublisherRequest eventPublisherRequest = new EventPublisherRequest();
         eventPublisherRequest.setGameId(GameId);
 
-        final Map<String, AttributeValue> result = eventPublisherHandler.handleRequest(eventPublisherRequest, null);
+        final Map<String, Integer> result = eventPublisherHandler.handleRequest(eventPublisherRequest, null);
 
         assertThat(result, is(notNullValue()));
         assertThat(result, is(not(Collections.emptyMap())));
-        final AttributeValue responseLastProcessedEventIndex = result.get("lastProcessedEventIndex");
+        final Integer responseLastProcessedEventIndex = result.get("lastProcessedEventIndex");
         assertThat(responseLastProcessedEventIndex, is(notNullValue()));
-        assertThat(Integer.parseInt(responseLastProcessedEventIndex.n()), is(1));
+        assertThat(responseLastProcessedEventIndex, is(1));
+        final Integer numberOfEventsPublished = result.get("numberOfEventsPublished");
+        assertThat(numberOfEventsPublished, is(notNullValue()));
+        assertTrue(numberOfEventsPublished >= 1);
         verify(mockEventPublisherProxy, atLeast(1)).publish(any(PlayEvent.class), anyInt(), anyInt());
         verify(mockDynamoDbProxy, times(1)).getNhlPlayByPlayProcessingItem(any(EventPublisherRequest.class));
         verify(mockDynamoDbProxy, times(1)).updateNhlPlayByPlayProcessingItem(any(), any());
     }
 
     @Test
-    public void testHandleRequestPublishesFirstPlayByPlayEvent() {
+    public void test_handleRequest_successfully_publishes_the_first_play_by_play_event_for_a_game() {
 
         final About about = new About();
         about.setEventIdx(0);
         NhlLiveGameFeedResponse.getLiveData().getPlays().getCurrentPlay().setAbout(about);
-        when(mockNhlPlayByPlayProxy.getPlayByPlayEventsSinceLastProcessedTimestamp(anyString(), any(EventPublisherRequest.class)))
-                .thenReturn(Optional.of(NhlLiveGameFeedResponse));
+        when(mockNhlPlayByPlayProxy.getPlayByPlayData(any(EventPublisherRequest.class))).thenReturn(Optional.of(NhlLiveGameFeedResponse));
         final Map<String, AttributeValue> updatedItem = new HashMap<>();
         updatedItem.put("lastProcessedEventIndex", AttributeValue.builder().n("0").build());
         when(mockDynamoDbProxy.updateNhlPlayByPlayProcessingItem(any(), any())).thenReturn(updatedItem);
@@ -103,29 +104,31 @@ public class EventPublisherHandlerTest extends UnitTestBase {
         final EventPublisherRequest eventPublisherRequest = new EventPublisherRequest();
         eventPublisherRequest.setGameId(GameId);
 
-        final Map<String, AttributeValue> result = eventPublisherHandler.handleRequest(eventPublisherRequest, null);
+        final Map<String, Integer> result = eventPublisherHandler.handleRequest(eventPublisherRequest, null);
 
         assertThat(result, is(notNullValue()));
         assertThat(result, is(not(Collections.emptyMap())));
-        final AttributeValue responseLastProcessedEventIndex = result.get("lastProcessedEventIndex");
+        final Integer responseLastProcessedEventIndex = result.get("lastProcessedEventIndex");
         assertThat(responseLastProcessedEventIndex, is(notNullValue()));
-        assertThat(Integer.parseInt(responseLastProcessedEventIndex.n()), is(0));
+        assertThat(responseLastProcessedEventIndex, is(0));
+        final Integer responseNumberOfEventsPublished = result.get("numberOfEventsPublished");
+        assertThat(responseNumberOfEventsPublished, is(notNullValue()));
+        assertThat(responseNumberOfEventsPublished, is(1));
         verify(mockEventPublisherProxy, times(1)).publish(any(PlayEvent.class), anyInt(), anyInt());
         verify(mockDynamoDbProxy, times(1)).getNhlPlayByPlayProcessingItem(any(EventPublisherRequest.class));
         verify(mockDynamoDbProxy, times(1)).updateNhlPlayByPlayProcessingItem(any(), any());
     }
 
     @Test
-    public void testHandleRequestDoesNotPublishAnyEventsIfThereIsNoNewEventSinceLastEventProcessed() {
+    public void test_handleRequest_does_not_publish_events_when_there_are_no_new_events_since_last_event_processed() {
 
         final About about = new About();
         about.setEventIdx(1);
         final NhlLiveGameFeedResponse nhlLiveGameFeedResponse = createNhlLiveGameFeedResponse();
         nhlLiveGameFeedResponse.getLiveData().getPlays().getCurrentPlay().setAbout(about);
-        when(mockNhlPlayByPlayProxy.getPlayByPlayEventsSinceLastProcessedTimestamp(anyString(), any(EventPublisherRequest.class))).thenReturn(Optional.of(nhlLiveGameFeedResponse));
+        when(mockNhlPlayByPlayProxy.getPlayByPlayData(any(EventPublisherRequest.class))).thenReturn(Optional.of(nhlLiveGameFeedResponse));
         final Map<String, AttributeValue> item = new HashMap<>();
         item.put("lastProcessedEventIndex", AttributeValue.builder().n("1").build());
-        item.put("lastProcessedTimeStamp", AttributeValue.builder().s("20191027_160744").build());
         when(mockDynamoDbProxy.getNhlPlayByPlayProcessingItem(any(EventPublisherRequest.class))).thenReturn(item);
         when(mockDynamoDbProxy.updateNhlPlayByPlayProcessingItem(any(), any())).thenReturn(item);
         EventPublisherHandler eventPublisherHandler = new EventPublisherHandler(mockDynamoDbProxy, mockNhlPlayByPlayProxy,
@@ -133,42 +136,44 @@ public class EventPublisherHandlerTest extends UnitTestBase {
         final EventPublisherRequest eventPublisherRequest = new EventPublisherRequest();
         eventPublisherRequest.setGameId(GameId);
 
-        final Map<String, AttributeValue> result = eventPublisherHandler.handleRequest(eventPublisherRequest, null);
+        final Map<String, Integer> result = eventPublisherHandler.handleRequest(eventPublisherRequest, null);
 
         assertThat(result, is(notNullValue()));
         assertThat(result, is(not(Collections.emptyMap())));
-        final AttributeValue responseLastProcessedEventIndex = result.get("lastProcessedEventIndex");
+        final Integer responseLastProcessedEventIndex = result.get("lastProcessedEventIndex");
         assertThat(responseLastProcessedEventIndex, is(notNullValue()));
-        assertThat(Integer.parseInt(responseLastProcessedEventIndex.n()), is(1));
-        verify(mockEventPublisherProxy, times(0)).publish(any(PlayEvent.class), anyInt(), anyInt());
+        assertThat(responseLastProcessedEventIndex, is(1));
+        final Integer responseNumberOfEventsPublished = result.get("numberOfEventsPublished");
+        assertThat(responseNumberOfEventsPublished, is(notNullValue()));
+        assertThat(responseNumberOfEventsPublished, is(0));
+        verify(mockEventPublisherProxy, never()).publish(any(PlayEvent.class), anyInt(), anyInt());
         verify(mockDynamoDbProxy, times(1)).getNhlPlayByPlayProcessingItem(any(EventPublisherRequest.class));
         verify(mockDynamoDbProxy, times(1)).updateNhlPlayByPlayProcessingItem(any(), any());
     }
 
     @Test
-    public void testHandleRequestDoesNotPublishAnyEventsIfNhlPlayByPlayResponseIsEmptyArray() {
+    public void test_handleRequest_does_not_publish_events_when_the_nhl_play_by_play_response_is_empty() {
 
-        when(mockNhlPlayByPlayProxy.getPlayByPlayEventsSinceLastProcessedTimestamp(anyString(), any(EventPublisherRequest.class)))
-                .thenReturn(Optional.empty());
+        when(mockNhlPlayByPlayProxy.getPlayByPlayData(any(EventPublisherRequest.class))).thenReturn(Optional.empty());
         final Map<String, AttributeValue> item = new HashMap<>();
         item.put("lastProcessedEventIndex", AttributeValue.builder().n("0").build());
-        item.put("lastProcessedTimeStamp", AttributeValue.builder().s("20191027_160744").build());
         when(mockDynamoDbProxy.getNhlPlayByPlayProcessingItem(any(EventPublisherRequest.class))).thenReturn(item);
         EventPublisherHandler eventPublisherHandler = new EventPublisherHandler(mockDynamoDbProxy, mockNhlPlayByPlayProxy,
                 mockEventPublisherProxy);
         final EventPublisherRequest eventPublisherRequest = new EventPublisherRequest();
         eventPublisherRequest.setGameId(GameId);
 
-        final Map<String, AttributeValue> result = eventPublisherHandler.handleRequest(eventPublisherRequest, null);
+        final Map<String, Integer> result = eventPublisherHandler.handleRequest(eventPublisherRequest, null);
 
         assertThat(result, is(notNullValue()));
         assertThat(result, is(not(Collections.emptyMap())));
-        final AttributeValue responseLastProcessedEventIndex = result.get("lastProcessedEventIndex");
-        assertThat(responseLastProcessedEventIndex, is(notNullValue()));
-        assertThat(Integer.parseInt(responseLastProcessedEventIndex.n()), is(1));
-        verify(mockEventPublisherProxy, times(0)).publish(any(PlayEvent.class), anyInt(), anyInt());
+        final Integer responseLastProcessedEventIndex = result.get("lastProcessedEventIndex");
+        assertThat(responseLastProcessedEventIndex, is(nullValue()));
+        final Integer responseNumberOfEventsPublished = result.get("numberOfEventsPublished");
+        assertThat(responseNumberOfEventsPublished, is(notNullValue()));
+        assertThat(responseNumberOfEventsPublished, is(0));
+        verify(mockEventPublisherProxy, never()).publish(any(PlayEvent.class), anyInt(), anyInt());
         verify(mockDynamoDbProxy, times(1)).getNhlPlayByPlayProcessingItem(any(EventPublisherRequest.class));
-        verify(mockDynamoDbProxy, times(1)).getNhlPlayByPlayProcessingItem(any(EventPublisherRequest.class));
-        verify(mockDynamoDbProxy, times(1)).updateNhlPlayByPlayProcessingItem(any(), any());
+        verify(mockDynamoDbProxy, never()).updateNhlPlayByPlayProcessingItem(any(), any());
     }
 }

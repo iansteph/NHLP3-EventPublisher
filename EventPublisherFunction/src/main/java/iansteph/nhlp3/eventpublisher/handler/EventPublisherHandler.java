@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -79,8 +80,14 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
                 .build();
 
         // NHL Play-By-Play
-        final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(createRestTemplateAndRegisterCustomObjectMapper());
-        this.nhlPlayByPlayProxy = new NhlPlayByPlayProxy(nhlPlayByPlayClient, s3Client,
+        final RestTemplate restTemplate = createRestTemplateAndRegisterCustomObjectMapper();
+        final ObjectMapper restTemplateObjectMapper = restTemplate.getMessageConverters().stream()
+                .filter(MappingJackson2HttpMessageConverter.class::isInstance)
+                .map(MappingJackson2HttpMessageConverter.class::cast)
+                .findFirst().orElseThrow( () -> new RuntimeException("MappingJackson2HttpMessageConverter not found"))
+                .getObjectMapper();
+        final NhlPlayByPlayClient nhlPlayByPlayClient = new NhlPlayByPlayClient(restTemplate);
+        this.nhlPlayByPlayProxy = new NhlPlayByPlayProxy(nhlPlayByPlayClient, restTemplateObjectMapper, s3Client,
                 appConfig.get("nhlPlayByPlayResponseArchiveS3BucketName").asText());
 
         // SNS
@@ -105,23 +112,30 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
         this.eventPublisherProxy = eventPublisherProxy;
     }
 
-    public Map<String, AttributeValue> handleRequest(final EventPublisherRequest eventPublisherRequest, final Context context) {
+    public Map<String, Integer> handleRequest(final EventPublisherRequest eventPublisherRequest, final Context context) {
 
         final Map<String, AttributeValue> nhlPlayByPlayProcessingItem =
                 dynamoDbProxy.getNhlPlayByPlayProcessingItem(eventPublisherRequest);
-        final String lastProcessedTimestamp = nhlPlayByPlayProcessingItem.get("lastProcessedTimeStamp").s();
-        final Optional<NhlLiveGameFeedResponse> nhlLiveGameFeedResponse = nhlPlayByPlayProxy.getPlayByPlayEventsSinceLastProcessedTimestamp(
-                lastProcessedTimestamp, eventPublisherRequest);
+        final Optional<NhlLiveGameFeedResponse> nhlLiveGameFeedResponse = nhlPlayByPlayProxy.getPlayByPlayData(eventPublisherRequest);
+        final Map<String, Integer> responseMap = new HashMap<>();
+        responseMap.put("numberOfEventsPublished", 0);
+        responseMap.put("lastProcessedEventIndex", null);
         if (nhlLiveGameFeedResponse.isPresent()) {
 
             final NhlLiveGameFeedResponse response = nhlLiveGameFeedResponse.get();
-            final List<PlayEvent> playEvents = splitPlayByPlayResponseIntoPlaysSinceLastTimestamp(nhlPlayByPlayProcessingItem,
+            final int latestEventIndex = response.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx();
+            logger.info(format("Latest event index: %d", latestEventIndex));
+            final List<PlayEvent> playEvents = splitPlayByPlayResponseIntoPlaysSinceLastProcessedIndex(nhlPlayByPlayProcessingItem,
                     response);
-            logger.info(format("%s event(s) since last event processed", playEvents.size()));
+            final int numberOfEventsToPublish = playEvents.size();
+            responseMap.put("numberOfEventsPublished", numberOfEventsToPublish);
+            logger.info(format("%s event(s) since last event processed", numberOfEventsToPublish));
             final Teams teamsInPlay = response.getGameData().getTeams();
             playEvents.forEach(p -> eventPublisherProxy.publish(p, teamsInPlay.getHome().getId(), teamsInPlay.getAway().getId()));
+            dynamoDbProxy.updateNhlPlayByPlayProcessingItem(nhlPlayByPlayProcessingItem, nhlLiveGameFeedResponse);
+            responseMap.put("lastProcessedEventIndex", latestEventIndex);
         }
-        return dynamoDbProxy.updateNhlPlayByPlayProcessingItem(nhlPlayByPlayProcessingItem, nhlLiveGameFeedResponse);
+        return responseMap;
     }
 
     private JsonNode initializeAppConfig() {
@@ -159,13 +173,7 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
         return restTemplate;
     }
 
-    private boolean isGameCompleted(final NhlLiveGameFeedResponse nhlLiveGameFeedResponse) {
-
-        return nhlLiveGameFeedResponse.getGameData().getStatus().getAbstractGameState().toLowerCase()
-                .equals("final");
-    }
-
-    private List<PlayEvent> splitPlayByPlayResponseIntoPlaysSinceLastTimestamp(
+    private List<PlayEvent> splitPlayByPlayResponseIntoPlaysSinceLastProcessedIndex(
             final Map<String, AttributeValue> nhlPlayByPlayProcessingItem,
             final NhlLiveGameFeedResponse nhlLiveGameFeedResponse
     ) {
