@@ -11,10 +11,6 @@ import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -83,11 +79,7 @@ public class DynamoDbProxy {
                 itemToUpdate.put("lastProcessedEventIndex", AttributeValue.builder()
                         .n(String.valueOf(response.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx()))
                         .build());
-                itemToUpdate.put("inIntermission", AttributeValue.builder()
-                        .bool(response.getLiveData().getLinescore().getIntermissionInfo().isInIntermission())
-                        .build());
             }
-            itemToUpdate.put("lastProcessedTimeStamp", AttributeValue.builder().s(createNewLastProcessedTimestamp()).build());
             final PutItemResponse response = dynamoDbClient.putItem(PutItemRequest.builder()
                     .tableName(nhlPlayByPlayProcessingDynamoDbTableName)
                     .item(itemToUpdate)
@@ -110,13 +102,5 @@ public class DynamoDbProxy {
         final String compositeGameId = String.format("%s~%s", hashedGameId, gameId);
         logger.info(format("CompositeGameId is %s for GameId %s and EventPublisherRequest %s", compositeGameId, gameId, request));
         return compositeGameId;
-    }
-
-    private String createNewLastProcessedTimestamp() {
-        final LocalDateTime nowDateTime = LocalDateTime.now(ZoneId.of("UTC"));
-        final LocalDate nowDate = nowDateTime.toLocalDate();
-        final LocalTime nowTime = nowDateTime.toLocalTime();
-        return format("%d%02d%02d_%02d%02d%02d", nowDate.getYear(), nowDate.getMonthValue(), nowDate.getDayOfMonth(), nowTime.getHour(),
-                nowTime.getMinute(), nowTime.getSecond());
     }
 }
