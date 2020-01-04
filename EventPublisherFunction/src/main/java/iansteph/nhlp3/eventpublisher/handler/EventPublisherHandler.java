@@ -5,6 +5,7 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import iansteph.nhlp3.eventpublisher.client.NhlPlayByPlayClient;
 import iansteph.nhlp3.eventpublisher.model.event.PlayEvent;
@@ -169,7 +170,8 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
                 .filter(MappingJackson2HttpMessageConverter.class::isInstance)
                 .map(MappingJackson2HttpMessageConverter.class::cast)
                 .findFirst().orElseThrow( () -> new RuntimeException("MappingJackson2HttpMessageConverter not found"));
-        messageConverter.getObjectMapper().registerModule(new JavaTimeModule());
+        messageConverter.getObjectMapper().registerModule(new JavaTimeModule()).configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS,
+                false);
         return restTemplate;
     }
 
