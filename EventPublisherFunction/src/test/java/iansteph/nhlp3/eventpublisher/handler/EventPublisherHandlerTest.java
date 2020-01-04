@@ -12,6 +12,13 @@ import static org.mockito.Mockito.*;
 import iansteph.nhlp3.eventpublisher.UnitTestBase;
 import iansteph.nhlp3.eventpublisher.model.event.PlayEvent;
 import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
+import iansteph.nhlp3.eventpublisher.model.nhl.gamedata.GameData;
+import iansteph.nhlp3.eventpublisher.model.nhl.gamedata.Status;
+import iansteph.nhlp3.eventpublisher.model.nhl.gamedata.Teams;
+import iansteph.nhlp3.eventpublisher.model.nhl.gamedata.teams.Team;
+import iansteph.nhlp3.eventpublisher.model.nhl.livedata.LiveData;
+import iansteph.nhlp3.eventpublisher.model.nhl.livedata.Plays;
+import iansteph.nhlp3.eventpublisher.model.nhl.livedata.plays.Play;
 import iansteph.nhlp3.eventpublisher.model.nhl.livedata.plays.play.About;
 import iansteph.nhlp3.eventpublisher.model.request.EventPublisherRequest;
 import iansteph.nhlp3.eventpublisher.proxy.DynamoDbProxy;
@@ -24,8 +31,10 @@ import org.junit.contrib.java.lang.system.EnvironmentVariables;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.sns.model.PublishResponse;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -38,7 +47,7 @@ public class EventPublisherHandlerTest extends UnitTestBase {
     @Before
     public void setupMocks() {
 
-        // Mock DynamoDBMapper
+        // Mock DynamoDbProxy
         final Map<String, AttributeValue> initialItem = new HashMap<>();
         initialItem.put("lastProcessedEventIndex", AttributeValue.builder().n("0").build());
         when(mockDynamoDbProxy.getNhlPlayByPlayProcessingItem(any(EventPublisherRequest.class))).thenReturn(initialItem);
@@ -175,5 +184,58 @@ public class EventPublisherHandlerTest extends UnitTestBase {
         verify(mockEventPublisherProxy, never()).publish(any(PlayEvent.class), anyInt(), anyInt());
         verify(mockDynamoDbProxy, times(1)).getNhlPlayByPlayProcessingItem(any(EventPublisherRequest.class));
         verify(mockDynamoDbProxy, never()).updateNhlPlayByPlayProcessingItem(any(), any());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void test_handleRequest_throws_IndexOutOfBoundsException_when_current_play_event_index_is_less_than_last_processed_event_index_from_dynamo() {
+
+        final Map<String, AttributeValue> initialItem = new HashMap<>();
+        initialItem.put("lastProcessedEventIndex", AttributeValue.builder().n("10").build());
+        when(mockDynamoDbProxy.getNhlPlayByPlayProcessingItem(any(EventPublisherRequest.class))).thenReturn(initialItem);
+        final Map<String, AttributeValue> updatedItem = new HashMap<>();
+        updatedItem.put("lastProcessedEventIndex", AttributeValue.builder().n("11").build());
+        when(mockDynamoDbProxy.updateNhlPlayByPlayProcessingItem(any(), any())).thenReturn(updatedItem);
+
+        final NhlLiveGameFeedResponse nhlLiveGameFeedResponse = new NhlLiveGameFeedResponse();
+        final Teams teams = new Teams();
+        final Team homeTeam = new Team();
+        homeTeam.setId(1);
+        teams.setHome(homeTeam);
+        final Team awayTeam = new Team();
+        awayTeam.setId(2);
+        teams.setAway(awayTeam);
+        final GameData gameData = new GameData();
+        gameData.setTeams(teams);
+        final Status status = new Status();
+        status.setAbstractGameState("Final");
+        gameData.setStatus(status);
+        nhlLiveGameFeedResponse.setGameData(gameData);
+        final About about = new About();
+        about.setEventIdx(6);
+        final Play currentPlay = new Play();
+        currentPlay.setAbout(about);
+        final Plays plays = new Plays();
+        plays.setCurrentPlay(currentPlay);
+        final List<Play> allPlays = new ArrayList<>();
+        allPlays.add(new Play());
+        allPlays.add(new Play());
+        allPlays.add(new Play());
+        allPlays.add(new Play());
+        allPlays.add(new Play());
+        allPlays.add(new Play());
+        allPlays.add(new Play());
+        plays.setAllPlays(allPlays);
+        final LiveData liveData = new LiveData();
+        liveData.setPlays(plays);
+        nhlLiveGameFeedResponse.setLiveData(liveData);
+        nhlLiveGameFeedResponse.setGamePk(GameId);
+
+        when(mockNhlPlayByPlayProxy.getPlayByPlayData(any(EventPublisherRequest.class))).thenReturn(Optional.of(nhlLiveGameFeedResponse));
+        EventPublisherHandler eventPublisherHandler = new EventPublisherHandler(mockDynamoDbProxy, mockNhlPlayByPlayProxy,
+                mockEventPublisherProxy);
+        final EventPublisherRequest eventPublisherRequest = new EventPublisherRequest();
+        eventPublisherRequest.setGameId(GameId);
+
+        eventPublisherHandler.handleRequest(eventPublisherRequest, null);
     }
 }

@@ -194,11 +194,19 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
         }
         else {
 
-            final List<Play> playsToPublish = nhlLiveGameFeedResponse.getLiveData().getPlays().getAllPlays().subList(startPlayIndex,
-                    endPlayIndex);
-            return playsToPublish.stream()
-                    .map(p -> new PlayEvent().withGamePk(nhlLiveGameFeedResponse.getGamePk()).withPlay(p))
-                    .collect(Collectors.toList());
+            try {
+
+                final List<Play> playsToPublish = nhlLiveGameFeedResponse.getLiveData().getPlays().getAllPlays().subList(startPlayIndex,
+                        endPlayIndex);
+                return playsToPublish.stream()
+                        .map(p -> new PlayEvent().withGamePk(nhlLiveGameFeedResponse.getGamePk()).withPlay(p))
+                        .collect(Collectors.toList());
+            }
+            catch (IllegalArgumentException e) {
+
+                logger.error(e);
+                throw e;
+            }
         }
     }
 }
