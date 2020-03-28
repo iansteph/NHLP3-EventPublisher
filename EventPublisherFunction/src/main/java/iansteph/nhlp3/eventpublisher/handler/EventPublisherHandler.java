@@ -2,11 +2,11 @@ package iansteph.nhlp3.eventpublisher.handler;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import iansteph.nhlp3.eventpublisher.AppConfig;
 import iansteph.nhlp3.eventpublisher.client.NhlPlayByPlayClient;
 import iansteph.nhlp3.eventpublisher.model.event.PlayEvent;
 import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
@@ -31,8 +31,6 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.utils.AttributeMap;
 
-import java.io.File;
-import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
 import java.util.HashMap;
@@ -52,12 +50,11 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
     private final EventPublisherProxy eventPublisherProxy;
     private final NhlPlayByPlayProxy nhlPlayByPlayProxy;
 
-    private static final String APP_CONFIG_FILE_NAME = "application-configuration.json";
     private static final Logger logger = LogManager.getLogger(EventPublisherHandler.class);
 
     public EventPublisherHandler() {
 
-        final JsonNode appConfig = initializeAppConfig();
+        final JsonNode appConfig = AppConfig.initialize();
 
         // Common
         final AwsCredentialsProvider defaultAwsCredentialsProvider = DefaultCredentialsProvider.builder().build();
@@ -137,30 +134,6 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
             responseMap.put("lastProcessedEventIndex", latestEventIndex);
         }
         return responseMap;
-    }
-
-    private JsonNode initializeAppConfig() {
-
-        final String stage = System.getenv("Stage");
-        final ObjectMapper objectMapper = new ObjectMapper();
-        try {
-
-            final String appConfigFilePath = this.getClass().getClassLoader().getResource(APP_CONFIG_FILE_NAME).getFile();
-            final File appConfigFile = new File(appConfigFilePath);
-            final JsonNode appConfig = objectMapper.readTree(appConfigFile);
-            logger.info(format("Initialized app config for stage: %s", stage));
-            return appConfig.get(stage);
-        }
-        catch (JsonProcessingException e) {
-
-            logger.error(format("Encountered exception parsing JSON in app config file. Exception: %s", e.getMessage()), e);
-            throw new RuntimeException(e);
-        }
-        catch (IOException e) {
-
-            logger.error(format("Encountered exception reading app config file. Exception: %s", e.getMessage()), e);
-            throw new RuntimeException(e);
-        }
     }
 
     private RestTemplate createRestTemplateAndRegisterCustomObjectMapper() {
