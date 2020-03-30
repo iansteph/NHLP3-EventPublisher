@@ -11,7 +11,6 @@ import iansteph.nhlp3.eventpublisher.client.NhlPlayByPlayClient;
 import iansteph.nhlp3.eventpublisher.model.event.PlayEvent;
 import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
 import iansteph.nhlp3.eventpublisher.model.nhl.gamedata.Teams;
-import iansteph.nhlp3.eventpublisher.model.nhl.livedata.plays.Play;
 import iansteph.nhlp3.eventpublisher.model.request.EventPublisherRequest;
 import iansteph.nhlp3.eventpublisher.proxy.DynamoDbProxy;
 import iansteph.nhlp3.eventpublisher.proxy.EventPublisherProxy;
@@ -32,11 +31,14 @@ import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.utils.AttributeMap;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
@@ -51,6 +53,7 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
     private final NhlPlayByPlayProxy nhlPlayByPlayProxy;
 
     private static final Logger logger = LogManager.getLogger(EventPublisherHandler.class);
+    private static final String PUBLISHED_EVENT_CODE_SET_ATTRIBUTE_NAME = "publishedEventCodeSet";
 
     public EventPublisherHandler() {
 
@@ -117,21 +120,20 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
         final Optional<NhlLiveGameFeedResponse> nhlLiveGameFeedResponse = nhlPlayByPlayProxy.getPlayByPlayData(eventPublisherRequest);
         final Map<String, Integer> responseMap = new HashMap<>();
         responseMap.put("numberOfEventsPublished", 0);
-        responseMap.put("lastProcessedEventIndex", null);
         if (validateNhlPlayByPlayResponseIsPopulated(nhlLiveGameFeedResponse)) {
 
             final NhlLiveGameFeedResponse response = nhlLiveGameFeedResponse.get();
-            final int latestEventIndex = response.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx();
-            logger.info(format("Latest event index: %d", latestEventIndex));
-            final List<PlayEvent> playEvents = splitPlayByPlayResponseIntoPlaysSinceLastProcessedIndex(nhlPlayByPlayProcessingItem,
-                    response);
-            final int numberOfEventsToPublish = playEvents.size();
-            responseMap.put("numberOfEventsPublished", numberOfEventsToPublish);
-            logger.info(format("%s event(s) since last event processed", numberOfEventsToPublish));
-            final Teams teamsInPlay = response.getGameData().getTeams();
-            playEvents.forEach(p -> eventPublisherProxy.publish(p, teamsInPlay.getHome().getId(), teamsInPlay.getAway().getId()));
-            dynamoDbProxy.updateNhlPlayByPlayProcessingItem(nhlPlayByPlayProcessingItem, nhlLiveGameFeedResponse);
-            responseMap.put("lastProcessedEventIndex", latestEventIndex);
+            final Map<String, Integer> playByPlayResponseEventCodeToIndexMap = buildEventCodeToIndexMap(response);
+            final Set<String> publishedEventCodes = getPublishedEventCodes(nhlPlayByPlayProcessingItem);
+            final Map<String, Integer> eventIndicesToPublish = calculateEventIndicesToPublish(playByPlayResponseEventCodeToIndexMap,
+                    publishedEventCodes);
+            if (eventIndicesToPublish.size() > 0) {
+
+                final List<PlayEvent> playEventsToPublish = retrievePlayEventsToPublishFromPlayByPlayResponse(response, eventIndicesToPublish);
+                publishPlays(response, playEventsToPublish);
+                updatePublishedEventCodeSet(response.getGamePk(), eventIndicesToPublish.keySet());
+            }
+            responseMap.put("numberOfEventsPublished", eventIndicesToPublish.size());
         }
         return responseMap;
     }
@@ -153,38 +155,78 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
         return restTemplate;
     }
 
-    private List<PlayEvent> splitPlayByPlayResponseIntoPlaysSinceLastProcessedIndex(
-            final Map<String, AttributeValue> nhlPlayByPlayProcessingItem,
-            final NhlLiveGameFeedResponse nhlLiveGameFeedResponse
+    private Map<String, Integer> buildEventCodeToIndexMap(final NhlLiveGameFeedResponse nhlLiveGameFeedResponse) {
+
+        final Map<String, Integer> eventCodeToIndexMap = new HashMap<>();
+        nhlLiveGameFeedResponse.getLiveData().getPlays().getAllPlays().forEach(play -> {
+            final String eventCode = play.getResult().getEventCode();
+            final Integer index = play.getAbout().getEventIdx();
+            eventCodeToIndexMap.put(eventCode, index);
+        });
+        return eventCodeToIndexMap;
+    }
+
+    private Set<String> getPublishedEventCodes(final Map<String, AttributeValue> nhlPlayByPlayProcessingItem) {
+
+        final Set<String> publishedEventCodeSet =
+                nhlPlayByPlayProcessingItem.containsKey(PUBLISHED_EVENT_CODE_SET_ATTRIBUTE_NAME) ?
+                        new HashSet<>(nhlPlayByPlayProcessingItem.get(PUBLISHED_EVENT_CODE_SET_ATTRIBUTE_NAME).ss()) :
+                        new HashSet<>();
+        logger.info(format("%s eventCodes have been published so far: %s",publishedEventCodeSet.size(), publishedEventCodeSet));
+        return publishedEventCodeSet;
+    }
+
+    private Map<String, Integer> calculateEventIndicesToPublish(
+            final Map<String, Integer> masterEventCodeToIndexMap,
+            final Set<String> publishedEventCodeSet
     ) {
 
-        final int lastProcessedEventIndex = Integer.parseInt(nhlPlayByPlayProcessingItem.get("lastProcessedEventIndex").n());
+        final Set<String> eventCodesToPublish = new HashSet<>(masterEventCodeToIndexMap.keySet());
+        eventCodesToPublish.removeAll(publishedEventCodeSet);
+        final Map<String, Integer> eventCodeToIndexMapToPublish = new HashMap<>();
+        eventCodesToPublish.forEach(eventCode -> eventCodeToIndexMapToPublish.put(eventCode, masterEventCodeToIndexMap.get(eventCode)));
+        logger.info(format("%s eventCode(s) to be published: %s", eventCodeToIndexMapToPublish.size(), eventCodeToIndexMapToPublish));
+        return eventCodeToIndexMapToPublish;
+    }
 
-        // Add 1 because lastEventIndex was already processed (unless index is 0 then nothing has been processed yet)
-        final int startPlayIndex = lastProcessedEventIndex == 0 ? lastProcessedEventIndex : lastProcessedEventIndex + 1;
+    private List<PlayEvent> retrievePlayEventsToPublishFromPlayByPlayResponse(
+            final NhlLiveGameFeedResponse nhlLiveGameFeedResponse,
+            final Map<String, Integer> eventCodeToEventIndexMapToPublish
+    ) {
 
-        // Add 1 because the current play should be included
-        final int currentPlayIndex = nhlLiveGameFeedResponse.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx();
-        final int endPlayIndex = currentPlayIndex + 1;
-        if (lastProcessedEventIndex == currentPlayIndex && currentPlayIndex != 0) {
-            logger.info("No new events to publish");
-            return Collections.emptyList();
-        }
-        else {
+        final List<Integer> sortedEventIndicesToPublish = new ArrayList<>(eventCodeToEventIndexMapToPublish.values());
+        Collections.sort(sortedEventIndicesToPublish);
+        final int gamePk = nhlLiveGameFeedResponse.getGamePk();
+        final List<PlayEvent> playEventsToPublish = sortedEventIndicesToPublish.stream()
+                .map(eventIndex ->
+                        new PlayEvent()
+                                .withGamePk(gamePk)
+                                .withPlay(nhlLiveGameFeedResponse.getLiveData().getPlays().getAllPlays().get(eventIndex)))
+                .collect(Collectors.toList());
+        logger.info(format("Sorted order of PlayEvents to be published: %s", playEventsToPublish));
+        return playEventsToPublish;
+    }
 
-            try {
+    private void publishPlays(
+            final NhlLiveGameFeedResponse nhlLiveGameFeedResponse,
+            final List<PlayEvent> playEventsToPublish
+    ) {
 
-                final List<Play> playsToPublish = nhlLiveGameFeedResponse.getLiveData().getPlays().getAllPlays().subList(startPlayIndex,
-                        endPlayIndex);
-                return playsToPublish.stream()
-                        .map(p -> new PlayEvent().withGamePk(nhlLiveGameFeedResponse.getGamePk()).withPlay(p))
-                        .collect(Collectors.toList());
-            }
-            catch (IllegalArgumentException e) {
+        final Teams teamsInPlay = nhlLiveGameFeedResponse.getGameData().getTeams();
+        final int homeTeamId = teamsInPlay.getHome().getId();
+        final int awayTeamId = teamsInPlay.getAway().getId();
+        logger.info("Publishing play events...");
+        playEventsToPublish.forEach(playEvent -> eventPublisherProxy.publish(playEvent, homeTeamId, awayTeamId));
+        logger.info("Play events published");
+    }
 
-                logger.error(e);
-                throw e;
-            }
-        }
+    private void updatePublishedEventCodeSet(
+            final int gamePk,
+            final Set<String> publishedEventCodesToAdd
+    ) {
+
+        dynamoDbProxy.updatePublishedEventCodeSet(gamePk, publishedEventCodesToAdd);
+        logger.info(format("Added the following event codes to the published event code set in the DynamoDB: %s",
+                publishedEventCodesToAdd));
     }
 }

@@ -10,10 +10,14 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -23,6 +27,8 @@ public class DynamoDbProxy {
     private final DynamoDbClient dynamoDbClient;
     private final String nhlPlayByPlayProcessingDynamoDbTableName;
 
+    private static final String COMPOSITE_GAME_ID_PRIMARY_KEY = "compositeGameId";
+    private static final String PUBLISHED_EVENT_CODE_SET_ATTRIBUTE_NAME = "publishedEventCodeSet";
     private static final Logger logger = LogManager.getLogger(DynamoDbProxy.class);
 
     public DynamoDbProxy(
@@ -39,11 +45,11 @@ public class DynamoDbProxy {
 
             checkNotNull(request, format("GameId %s | EventPublisherRequest must not be null passed as parameter when calling " +
                     "DynamoDbProxy::getNhlPlayByPlayProcessingItem", request.getGameId()));
-            final String compositeGameId = generateCompositeGameId(request);
+            final String compositeGameId = generateCompositeGameId(request.getGameId());
             logger.info(format("Retrieving item for primary key %s from %s", compositeGameId,
                     nhlPlayByPlayProcessingDynamoDbTableName));
             Map<String, AttributeValue> primaryKey = new HashMap<>();
-            primaryKey.put("compositeGameId", AttributeValue.builder().s(compositeGameId).build());
+            primaryKey.put(COMPOSITE_GAME_ID_PRIMARY_KEY, AttributeValue.builder().s(compositeGameId).build());
             final GetItemRequest getItemRequest = GetItemRequest.builder()
                     .tableName(nhlPlayByPlayProcessingDynamoDbTableName)
                     .key(primaryKey)
@@ -61,46 +67,36 @@ public class DynamoDbProxy {
         }
     }
 
-    public Map<String, AttributeValue> updateNhlPlayByPlayProcessingItem(
-            final Map<String, AttributeValue> item,
-            final Optional<NhlLiveGameFeedResponse> nhlLiveGameFeedResponse
-    ) {
+    private String generateCompositeGameId(final int gamePk) {
 
-        try {
-
-            checkNotNull(item, "Item must be non-null when passed as parameter when calling " +
-                    "DynamoDbProxy::updateNhlPlayByPlayProcessingItem");
-            checkNotNull(nhlLiveGameFeedResponse, "NhlLiveGameFeedResponse must be non-null when passed as parameter when " +
-                    "calling DynamoDbProxy::updateNhlPlayByPlayProcessingItem");
-            final Map<String, AttributeValue> itemToUpdate = new HashMap<>(item);
-            if (nhlLiveGameFeedResponse.isPresent()) {
-
-                final NhlLiveGameFeedResponse response = nhlLiveGameFeedResponse.get();
-                itemToUpdate.put("lastProcessedEventIndex", AttributeValue.builder()
-                        .n(String.valueOf(response.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx()))
-                        .build());
-            }
-            final PutItemResponse response = dynamoDbClient.putItem(PutItemRequest.builder()
-                    .tableName(nhlPlayByPlayProcessingDynamoDbTableName)
-                    .item(itemToUpdate)
-                    .build());
-            final Map<String, AttributeValue> responseAttributes = response.attributes();
-            logger.info(format("Saved updated item to DynamoDB. Response: %s", responseAttributes));
-            return responseAttributes;
-        }
-        catch (NullPointerException e) {
-
-            logger.error(e);
-            throw e;
-        }
+        final String hashedGameId = Hashing.murmur3_128().hashInt(gamePk).toString();
+        final String compositeGameId = String.format("%s~%s", hashedGameId, gamePk);
+        logger.info(format("%s is %s for gamePk %s", COMPOSITE_GAME_ID_PRIMARY_KEY, compositeGameId, gamePk));
+        return compositeGameId;
     }
 
-    private String generateCompositeGameId(final EventPublisherRequest request) {
+    public void updatePublishedEventCodeSet(
+            final int gamePk,
+            final Set<String> publishedEventCodesToAdd
+    ) {
 
-        final int gameId = request.getGameId();
-        final String hashedGameId = Hashing.murmur3_128().hashInt(gameId).toString();
-        final String compositeGameId = String.format("%s~%s", hashedGameId, gameId);
-        logger.info(format("CompositeGameId is %s for GameId %s and EventPublisherRequest %s", compositeGameId, gameId, request));
-        return compositeGameId;
+        final Map<String, AttributeValue> primaryKey = new HashMap<>();
+        primaryKey.put(COMPOSITE_GAME_ID_PRIMARY_KEY, AttributeValue.builder().s(generateCompositeGameId(gamePk)).build());
+        final String publishedEventCodeSetAttributeName = "#publishedEventCodeSet";
+        final Map<String, String> expressionAttributeNames = new HashMap<>();
+        expressionAttributeNames.put(publishedEventCodeSetAttributeName, PUBLISHED_EVENT_CODE_SET_ATTRIBUTE_NAME);
+        final String publishedEventCodeSetAttributeValue = ":ecs";
+        final Map<String, AttributeValue> expressionAttributeValues = new HashMap<>();
+        expressionAttributeValues.put(publishedEventCodeSetAttributeValue, AttributeValue.builder().ss(publishedEventCodesToAdd).build());
+        final UpdateItemRequest updateItemRequest = UpdateItemRequest.builder()
+                .tableName(nhlPlayByPlayProcessingDynamoDbTableName)
+                .key(primaryKey)
+                .updateExpression(format("ADD %s %s", publishedEventCodeSetAttributeName, publishedEventCodeSetAttributeValue))
+                .expressionAttributeNames(expressionAttributeNames)
+                .expressionAttributeValues(expressionAttributeValues)
+                .returnValues(ReturnValue.UPDATED_NEW)
+                .build();
+        final UpdateItemResponse updateItemResponse = dynamoDbClient.updateItem(updateItemRequest);
+        logger.info(format("Updated item to DynamoDB. Response: %s", updateItemResponse));
     }
 }
