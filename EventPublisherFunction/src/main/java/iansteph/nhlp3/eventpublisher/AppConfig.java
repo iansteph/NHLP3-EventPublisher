@@ -21,6 +21,11 @@ public class AppConfig {
     public static JsonNode initialize() {
 
         final String stage = System.getenv("Stage");
+        return initialize(stage);
+    }
+
+    public static JsonNode initialize(final String stage) {
+
         final ObjectMapper objectMapper = new ObjectMapper();
         try {
 
