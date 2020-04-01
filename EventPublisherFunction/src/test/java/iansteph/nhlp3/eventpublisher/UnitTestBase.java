@@ -2,7 +2,6 @@ package iansteph.nhlp3.eventpublisher;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.google.common.io.Files;
 import iansteph.nhlp3.eventpublisher.model.request.EventPublisherRequest;
 import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
 import iansteph.nhlp3.eventpublisher.model.nhl.gamedata.GameData;
@@ -16,7 +15,6 @@ import iansteph.nhlp3.eventpublisher.model.nhl.livedata.plays.play.About;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 

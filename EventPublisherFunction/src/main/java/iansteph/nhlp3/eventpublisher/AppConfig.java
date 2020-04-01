@@ -6,8 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 
 import static java.lang.String.format;
 
@@ -29,9 +29,8 @@ public class AppConfig {
         final ObjectMapper objectMapper = new ObjectMapper();
         try {
 
-            final String appConfigFilePath = AppConfig.class.getClassLoader().getResource(APP_CONFIG_FILE_NAME).getFile();
-            final File appConfigFile = new File(appConfigFilePath);
-            final JsonNode appConfig = objectMapper.readTree(appConfigFile);
+            final InputStream appConfigInputStream = AppConfig.class.getClassLoader().getResourceAsStream(APP_CONFIG_FILE_NAME);
+            final JsonNode appConfig = objectMapper.readTree(appConfigInputStream);
             logger.info(format("Initialized app config for stage: %s", stage));
             return appConfig.get(stage);
         }
