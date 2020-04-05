@@ -1,0 +1,25 @@
+version: 0.2
+
+env:
+  parameter-store:
+    GITHUB_PERSONAL_ACCESS_TOKEN: GitHub-Personal-Access-Token
+
+phases:
+  install:
+    commands:
+      # Upgrade AWS CLI to the latest version
+      - pip install --upgrade awscli
+      - echo "<servers><server><id>github</id><username>iansteph</username><password>$GITHUB_PERSONAL_ACCESS_TOKEN</password></server></servers>" >> ./settings.xml # See here: https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html
+      - echo "</settings>" >> ./settings.xml # Append closing XML tag to settings.xml Maven file to format file correctly
+      - cp ./settings.xml /root/.m2/settings.xml
+    runtime-versions:
+      java: openjdk8
+  pre_build:
+    commands:
+      - cd EventPublisherFunction
+      - echo Test started on `date`
+      - mvn clean compile test
+  build:
+    commands:
+      - echo Integration tests started on `date`
+      - mvn verify

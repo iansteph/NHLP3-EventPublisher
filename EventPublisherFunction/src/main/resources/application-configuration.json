@@ -2,12 +2,23 @@
   "personal" : {
     "nhlPlayByPlayEventsTopicArn" : "arn:aws:sns:us-east-1:627812672245:NHLP3-Play-by-Play-Events-personal",
     "nhlPlayByPlayProcessingDynamoDbTableName" : "personal-NhlPlayByPlayProcessingAggregate",
-    "nhlPlayByPlayResponseArchiveS3BucketName" : "nhlp3-event-publisher-play-by-play-requests-archive-personal"
+    "nhlPlayByPlayResponseArchiveS3BucketName" : "nhlp3-event-publisher-play-by-play-requests-archive-personal",
+    "integration-tests" : {
+      "integrationTestingSqsQueueName" : "temp-EventPublisherHandlerIntegrationTestQueue-personal",
+      "eventPublisherLambdaFunctionName" : "NHLP3-EventPublisher-personal",
+      "nhlPlayByPlayEventsTopic" : "NHLP3-Play-by-Play-Events-personal"
+    }
   },
   "gamma" : {
     "nhlPlayByPlayEventsTopicArn" : "arn:aws:sns:us-east-1:627812672245:NHLP3-Play-by-Play-Events-gamma",
     "nhlPlayByPlayProcessingDynamoDbTableName" : "gamma-NhlPlayByPlayProcessingAggregate",
-    "nhlPlayByPlayResponseArchiveS3BucketName" : "nhlp3-event-publisher-play-by-play-requests-archive-gamma"
+    "nhlPlayByPlayResponseArchiveS3BucketName" : "nhlp3-event-publisher-play-by-play-requests-archive-gamma",
+    "integration-tests" : {
+      "integrationTestingSqsQueueName" : "temp-EventPublisherHandlerIntegrationTestQueue-gamma",
+      "eventPublisherLambdaFunctionName" : "NHLP3-EventPublisher-gamma",
+      "nhlPlayByPlayEventsTopic" : "NHLP3-Play-by-Play-Events-gamma"
+    }
+
   },
   "prod" : {
     "nhlPlayByPlayEventsTopicArn" : "arn:aws:sns:us-east-1:627812672245:NHLP3-Play-by-Play-Events-prod",
