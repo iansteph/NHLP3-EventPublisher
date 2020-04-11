@@ -125,7 +125,7 @@ Resources:
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
-          - Sid: AllowAllAwsAccountSubscriptions
+          - Sid: AllowAllAwsAccountSubscriptionsIfUsingLambdaOrSqsProtocol
             Effect: Allow
             Principal:
               AWS: '*'
@@ -133,6 +133,11 @@ Resources:
               - sns:Subscribe
             Resource:
               Ref: NHLP3EventsSnsTopic
+            Condition:
+              StringEquals:
+                sns:Protocol:
+                  - "lambda"
+                  - "sqs"
           - Sid: OnlyEventPublisherExecutionRoleCanPublishMessagesToSnsTopic
             Effect: Allow
             Principal:
