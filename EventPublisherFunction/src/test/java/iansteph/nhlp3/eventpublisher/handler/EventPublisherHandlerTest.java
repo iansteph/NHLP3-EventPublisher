@@ -186,6 +186,33 @@ public class EventPublisherHandlerTest extends UnitTestBase {
         verify(mockDynamoDbProxy, never()).updateNhlPlayByPlayProcessingItem(any(), any());
     }
 
+    @Test
+    public void test_handleRequest_does_not_publish_events_when_the_nhl_play_by_play_response_has_null_current_play() {
+
+        NhlLiveGameFeedResponse.getLiveData().getPlays().setCurrentPlay(null);
+        when(mockNhlPlayByPlayProxy.getPlayByPlayData(any(EventPublisherRequest.class))).thenReturn(Optional.of(NhlLiveGameFeedResponse));
+        final Map<String, AttributeValue> item = new HashMap<>();
+        item.put("lastProcessedEventIndex", AttributeValue.builder().n("0").build());
+        when(mockDynamoDbProxy.getNhlPlayByPlayProcessingItem(any(EventPublisherRequest.class))).thenReturn(item);
+        EventPublisherHandler eventPublisherHandler = new EventPublisherHandler(mockDynamoDbProxy, mockNhlPlayByPlayProxy,
+                mockEventPublisherProxy);
+        final EventPublisherRequest eventPublisherRequest = new EventPublisherRequest();
+        eventPublisherRequest.setGameId(GameId);
+
+        final Map<String, Integer> result = eventPublisherHandler.handleRequest(eventPublisherRequest, null);
+
+        assertThat(result, is(notNullValue()));
+        assertThat(result, is(not(Collections.emptyMap())));
+        final Integer responseLastProcessedEventIndex = result.get("lastProcessedEventIndex");
+        assertThat(responseLastProcessedEventIndex, is(nullValue()));
+        final Integer responseNumberOfEventsPublished = result.get("numberOfEventsPublished");
+        assertThat(responseNumberOfEventsPublished, is(notNullValue()));
+        assertThat(responseNumberOfEventsPublished, is(0));
+        verify(mockEventPublisherProxy, never()).publish(any(PlayEvent.class), anyInt(), anyInt());
+        verify(mockDynamoDbProxy, times(1)).getNhlPlayByPlayProcessingItem(any(EventPublisherRequest.class));
+        verify(mockDynamoDbProxy, never()).updateNhlPlayByPlayProcessingItem(any(), any());
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void test_handleRequest_throws_IndexOutOfBoundsException_when_current_play_event_index_is_less_than_last_processed_event_index_from_dynamo() {
 

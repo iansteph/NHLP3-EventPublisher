@@ -118,7 +118,7 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
         final Map<String, Integer> responseMap = new HashMap<>();
         responseMap.put("numberOfEventsPublished", 0);
         responseMap.put("lastProcessedEventIndex", null);
-        if (nhlLiveGameFeedResponse.isPresent()) {
+        if (validateNhlPlayByPlayResponseIsPopulated(nhlLiveGameFeedResponse)) {
 
             final NhlLiveGameFeedResponse response = nhlLiveGameFeedResponse.get();
             final int latestEventIndex = response.getLiveData().getPlays().getCurrentPlay().getAbout().getEventIdx();
@@ -134,6 +134,11 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
             responseMap.put("lastProcessedEventIndex", latestEventIndex);
         }
         return responseMap;
+    }
+
+    private boolean validateNhlPlayByPlayResponseIsPopulated(final Optional<NhlLiveGameFeedResponse> nhlLiveGameFeedResponse) {
+
+        return nhlLiveGameFeedResponse.isPresent() && nhlLiveGameFeedResponse.get().getLiveData().getPlays().getCurrentPlay() != null;
     }
 
     private RestTemplate createRestTemplateAndRegisterCustomObjectMapper() {
