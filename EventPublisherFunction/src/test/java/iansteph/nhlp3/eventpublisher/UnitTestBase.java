@@ -2,6 +2,7 @@ package iansteph.nhlp3.eventpublisher;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import iansteph.nhlp3.eventpublisher.model.nhl.livedata.plays.play.Result;
 import iansteph.nhlp3.eventpublisher.model.request.EventPublisherRequest;
 import iansteph.nhlp3.eventpublisher.model.nhl.NhlLiveGameFeedResponse;
 import iansteph.nhlp3.eventpublisher.model.nhl.gamedata.GameData;
@@ -46,6 +47,11 @@ public class UnitTestBase {
     public NhlLiveGameFeedResponse createNhlLiveGameFeedResponse() {
 
         final NhlLiveGameFeedResponse liveGameFeedResponse = new NhlLiveGameFeedResponse();
+        liveGameFeedResponse.setGamePk(GameId);
+        // GameData
+        final GameData gameData = new GameData();
+
+        // -- Teams
         final Teams teams = new Teams();
         final Team homeTeam = new Team();
         homeTeam.setId(1);
@@ -53,26 +59,54 @@ public class UnitTestBase {
         final Team awayTeam = new Team();
         awayTeam.setId(2);
         teams.setAway(awayTeam);
-        final GameData gameData = new GameData();
-        gameData.setTeams(teams);
+
+        // -- Status
         final Status status = new Status();
         status.setAbstractGameState("Final");
+
+        gameData.setTeams(teams);
         gameData.setStatus(status);
         liveGameFeedResponse.setGameData(gameData);
+
+
+        // LiveData
+        final LiveData liveData = new LiveData();
+
+        // -- Plays
+        final Plays plays = new Plays();
+
+        // -- -- CurrentPlay
+        final Play currentPlay = new Play();
+
+        // -- -- -- About
         final About about = new About();
         about.setEventIdx(1);
-        final Play currentPlay = new Play();
+
+        // -- -- -- Result
+        final Result result = new Result();
+        result.setEventCode("TEST2");
+
         currentPlay.setAbout(about);
-        final Plays plays = new Plays();
+        currentPlay.setResult(result);
         plays.setCurrentPlay(currentPlay);
+
+        // -- -- AllPlays
         final List<Play> allPlays = new ArrayList<>();
-        allPlays.add(new Play());
-        allPlays.add(new Play());
+
+        final Play firstPlay = new Play();
+        final About firstAbout = new About();
+        firstAbout.setEventIdx(0);
+        firstPlay.setAbout(firstAbout);
+        final Result firstResult = new Result();
+        firstResult.setEventCode("TEST1");
+        firstPlay.setResult(firstResult);
+
+        allPlays.add(firstPlay);
+        allPlays.add(currentPlay);
         plays.setAllPlays(allPlays);
-        final LiveData liveData = new LiveData();
+
         liveData.setPlays(plays);
         liveGameFeedResponse.setLiveData(liveData);
-        liveGameFeedResponse.setGamePk(GameId);
         return liveGameFeedResponse;
     }
 
