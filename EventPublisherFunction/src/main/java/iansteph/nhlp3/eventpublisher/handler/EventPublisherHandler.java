@@ -115,6 +115,7 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
 
     public Map<String, Integer> handleRequest(final EventPublisherRequest eventPublisherRequest, final Context context) {
 
+        logger.info(format("Handling event for gameId %s", eventPublisherRequest.getGameId()));
         final Map<String, AttributeValue> nhlPlayByPlayProcessingItem =
                 dynamoDbProxy.getNhlPlayByPlayProcessingItem(eventPublisherRequest);
         final Optional<NhlLiveGameFeedResponse> nhlLiveGameFeedResponse = nhlPlayByPlayProxy.getPlayByPlayData(eventPublisherRequest);
@@ -129,6 +130,7 @@ public class EventPublisherHandler implements RequestHandler<EventPublisherReque
                     publishedEventCodes);
             if (eventIndicesToPublish.size() > 0) {
 
+                logger.info(format("Events to publish: %d", eventIndicesToPublish.size()));
                 final List<PlayEvent> playEventsToPublish = retrievePlayEventsToPublishFromPlayByPlayResponse(response, eventIndicesToPublish);
                 publishPlays(response, playEventsToPublish);
                 updatePublishedEventCodeSet(response.getGamePk(), eventIndicesToPublish.keySet());
